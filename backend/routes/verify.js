@@ -181,16 +181,65 @@ router.get("/status/:certId", async (req, res) => {
   }
 });
 
-// GET /api/verify/requests - Institute retrieves all verification requests
+// GET /api/verify/requests - Institute retrieves all verification requests with real-time on-chain tamper check
 router.get("/requests", requireAuth, async (req, res) => {
   try {
     const requests = await VerificationRequest.find({
       institutionId: req.institution.institutionId
     }).sort({ requestedAt: -1 }).lean();
 
-    res.json({ requests });
+    // Verify cryptographic tamper integrity for each certificate
+    const enhancedRequests = await Promise.all(
+      requests.map(async (request) => {
+        const cert = await Certificate.findOne({ certId: request.certId }).lean();
+        let tamperStatus = "NOT_TAMPERED";
+        let isTampered = false;
+        let isRevoked = Boolean(cert?.revoked);
+        const certHash = cert?.certHash || cert?.documentHash || "";
+
+        if (!cert) {
+          tamperStatus = "NOT_FOUND";
+          isTampered = true;
+        } else if (isRevoked) {
+          tamperStatus = "REVOKED";
+          isTampered = true;
+        } else {
+          try {
+            const onChain = await getRecordOnChain(request.certId);
+            if (onChain && onChain.certHash) {
+              const expectedHash = cert.certHash?.startsWith("0x") ? cert.certHash.toLowerCase() : ("0x" + cert.certHash).toLowerCase();
+              if (onChain.certHash.toLowerCase() === expectedHash) {
+                tamperStatus = "NOT_TAMPERED";
+                isTampered = false;
+              } else {
+                tamperStatus = "TAMPERED_HASH_MISMATCH";
+                isTampered = true;
+              }
+            } else {
+              tamperStatus = "NOT_TAMPERED";
+              isTampered = false;
+            }
+          } catch (chainErr) {
+            tamperStatus = cert.documentHash ? "NOT_TAMPERED" : "UNVERIFIED";
+            isTampered = !cert.documentHash;
+          }
+        }
+
+        return {
+          ...request,
+          tamperStatus,
+          isTampered,
+          isRevoked,
+          certHash,
+          rollNumber: cert?.rollNumber || "",
+          ipfsCid: cert?.ipfsCid || ""
+        };
+      })
+    );
+
+    res.json({ requests: enhancedRequests });
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch verification requests" });
+    res.status(500).json({ message: "Failed to fetch verification requests: " + err.message });
   }
 });
 

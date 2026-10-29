@@ -1,5 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
+const { ethers } = require("ethers");
 const fs = require("fs/promises");
 const path = require("path");
 const QRCode = require("qrcode");
@@ -93,7 +94,7 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     const { candidateName, rollNumber, course, grade, issueDate, studentWallet, studentEmail } = req.body;
     const resolvedStudentWallet = (typeof studentWallet === "string" && studentWallet.trim().startsWith("0x"))
       ? studentWallet.trim()
-      : generateStakeholderWallet().address;
+      : ethers.Wallet.createRandom().address;
     const resolvedStudentEmail = typeof studentEmail === "string" ? studentEmail.trim().toLowerCase() : "";
     const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Other"];
     const documentType = typeof req.body.documentType === "string" ? req.body.documentType.trim() : "Other";

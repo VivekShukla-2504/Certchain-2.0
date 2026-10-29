@@ -3,6 +3,18 @@
  * Connects directly to the user's authentic Sepolia wallet address
  */
 
+export async function getConnectedWallet() {
+  if (typeof window !== "undefined" && window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_accounts" });
+      return accounts && accounts.length > 0 ? accounts[0] : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function connectMetaMaskWallet() {
   if (typeof window !== "undefined" && window.ethereum) {
     try {
@@ -56,4 +68,3 @@ export async function connectMetaMaskWallet() {
     throw new Error("MetaMask extension not found in your browser. Please install MetaMask or paste your Sepolia address manually.");
   }
 }
-

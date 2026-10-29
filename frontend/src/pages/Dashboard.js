@@ -187,6 +187,7 @@ export default function Dashboard() {
                     <th>Employer / Recruiter</th>
                     <th>Employer Key</th>
                     <th>Date Requested</th>
+                    <th>🛡️ Tamper Integrity</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
@@ -213,6 +214,65 @@ export default function Dashboard() {
                       <td data-label="Date Requested">
                         <small>{formatDate(req.requestedAt)}</small>
                       </td>
+                      <td data-label="Tamper Integrity">
+                        {req.tamperStatus === "NOT_TAMPERED" ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                background: "#ecfdf5",
+                                color: "#065f46",
+                                padding: "2px 8px",
+                                borderRadius: "6px",
+                                fontWeight: 600,
+                                fontSize: "0.75rem",
+                                border: "1px solid #a7f3d0"
+                              }}
+                            >
+                              🟢 NOT TAMPERED
+                            </span>
+                            <span style={{ fontSize: "0.7rem", color: "#059669", fontFamily: "monospace" }}>
+                              Hash Verified on Sepolia
+                            </span>
+                          </div>
+                        ) : req.tamperStatus === "REVOKED" ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              background: "#fef2f2",
+                              color: "#991b1b",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontWeight: 600,
+                              fontSize: "0.75rem",
+                              border: "1px solid #fecaca"
+                            }}
+                          >
+                            🔴 REVOKED
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              background: "#fff1f2",
+                              color: "#be123c",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontWeight: 600,
+                              fontSize: "0.75rem",
+                              border: "1px solid #fecdd3"
+                            }}
+                          >
+                            ⚠️ TAMPERED / MISMATCH
+                          </span>
+                        )}
+                      </td>
                       <td data-label="Status">
                         <span
                           className={`badge ${req.status === "approved" ? "badge-success" : req.status === "rejected" ? "badge-revoked" : "badge-neutral"}`}
@@ -224,14 +284,27 @@ export default function Dashboard() {
                       <td data-label="Action">
                         {req.status === "pending" && canManage ? (
                           <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <Button
-                              type="button"
-                              onClick={() => handleApprove(req)}
-                              loading={approvingId === req.requestId}
-                              style={{ fontSize: "0.8rem", padding: "0.35rem 0.7rem" }}
-                            >
-                              {approvingId === req.requestId ? "Signing..." : "✓ Approve"}
-                            </Button>
+                            {req.isTampered ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="button button-secondary"
+                                style={{ fontSize: "0.8rem", padding: "0.35rem 0.6rem", opacity: 0.6, cursor: "not-allowed" }}
+                                title="Cannot approve: Certificate has been modified or tampered"
+                              >
+                                🚫 Tampered
+                              </button>
+                            ) : (
+                              <Button
+                                type="button"
+                                onClick={() => handleApprove(req)}
+                                loading={approvingId === req.requestId}
+                                style={{ fontSize: "0.8rem", padding: "0.35rem 0.7rem" }}
+                                title="Cryptographic hash matches Sepolia smart contract"
+                              >
+                                {approvingId === req.requestId ? "Signing Sepolia..." : "✓ Approve on Sepolia"}
+                              </Button>
+                            )}
                             <button
                               type="button"
                               className="button button-secondary"

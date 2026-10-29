@@ -27,7 +27,6 @@ export function PublicHeader() {
       <nav className="nav-links" aria-label="Primary navigation">
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/student">🎓 Student Portal</NavLink>
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify">💼 Employer Verify</NavLink>
-        <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/keys">⛓️ Sepolia Network</NavLink>
         <Link to="/login" className="button button-secondary topbar-signin">🏛️ Institution Portal</Link>
         <ThemeToggle />
       </nav>
@@ -85,7 +84,7 @@ export function AuthenticatedLayout({ children }) {
         <header className="workspace-header">
           <button className="mobile-menu-button" onClick={() => setMobileOpen(true)} aria-label="Open navigation">☰</button>
           <div className="breadcrumbs"><Link to="/dashboard">Workspace</Link><span>/</span><strong>{pageTitle}</strong></div>
-          <div className="workspace-header-actions"><span className="header-network"><span className="status-dot" /> Local network</span><ThemeToggle /></div>
+          <div className="workspace-header-actions"><span className="header-network"><span className="status-dot" /> Ethereum Network</span><ThemeToggle /></div>
         </header>
         {children}
       </main>

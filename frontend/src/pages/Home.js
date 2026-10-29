@@ -7,15 +7,15 @@ export default function Home() {
     <main className="home-page">
       <section className="home-hero">
         <div className="home-hero-copy">
-          <span className="eyebrow">Credential infrastructure for institutions</span>
-          <h1>Proof that stands up to scrutiny.</h1>
-          <p className="home-lead">Issue academic certificates with a tamper-evident record, then let anyone verify their authenticity in seconds.</p>
+          <span className="eyebrow">3-Stakeholder Blockchain Credential Infrastructure</span>
+          <h1>Tamper-Proof Academic Certificates on Ethereum</h1>
+          <p className="home-lead">
+            An immutable, decentralized verification network connecting Institutions, Students, and Employers with zero risk of tampering.
+          </p>
           <div className="home-actions">
             <Link className="button button-primary" to="/student">🎓 Student Portal</Link>
             <Link className="button button-primary" to="/verify" style={{ background: "#059669" }}>💼 Employer Verify</Link>
-            <Link className="button button-secondary" to="/keys">⛓️ Sepolia Network</Link>
             <Link className="button button-secondary" to="/login">🏛️ Institution Portal</Link>
-
           </div>
           <p className="home-note">No account is needed to verify a certificate.</p>
         </div>
@@ -29,9 +29,9 @@ export default function Home() {
         </div>
       </section>
       <section className="home-trust-row" aria-label="CertChain capabilities">
-        <div><span className="trust-number">01</span><div><strong>Issue once</strong><p>Create a certificate record for every recipient.</p></div></div>
-        <div><span className="trust-number">02</span><div><strong>Anchor securely</strong><p>Keep a tamper-evident fingerprint of the record.</p></div></div>
-        <div><span className="trust-number">03</span><div><strong>Verify anywhere</strong><p>Share a certificate ID for fast public verification.</p></div></div>
+        <div><span className="trust-number">01</span><div><strong>1. Institution Issues</strong><p>Signs certificate on Ethereum blockchain with IPFS hash.</p></div></div>
+        <div><span className="trust-number">02</span><div><strong>2. Student Receives</strong><p>Owns digital credential bound to their public address.</p></div></div>
+        <div><span className="trust-number">03</span><div><strong>3. Employer Verifies</strong><p>Requests verification & gets verified proof with institute approval.</p></div></div>
       </section>
       <footer className="home-footer"><Brand /><span>Academic credentials, made verifiable.</span></footer>
     </main>

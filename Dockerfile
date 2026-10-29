@@ -25,3 +25,4 @@ COPY --from=frontend-builder /app/frontend/build ./frontend/build
 EXPOSE 5000
 
 CMD ["node", "backend/server.js"]
+

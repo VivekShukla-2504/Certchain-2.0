@@ -1,10 +1,11 @@
 services:
   - type: web
-    name: certchain
+    name: certchain-backend
     env: node
     plan: free
-    buildCommand: "npm --prefix backend install && npm --prefix frontend install && npm --prefix frontend run build"
-    startCommand: "node backend/server.js"
+    rootDir: backend
+    buildCommand: "npm install"
+    startCommand: "node server.js"
     envVars:
       - key: NODE_ENV
         value: production
@@ -23,4 +24,24 @@ services:
       - key: RPC_URL
         sync: false
       - key: PRIVATE_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: IPFS_ENABLED
+        value: "true"
+      - key: IPFS_PROVIDER
+        value: "pinata"
+      - key: IPFS_API_TOKEN
+        sync: false
+      - key: IPFS_GATEWAY_URL
+        value: "https://gateway.pinata.cloud/ipfs"
+      - key: IPFS_ENCRYPTION_KEY
         sync: false

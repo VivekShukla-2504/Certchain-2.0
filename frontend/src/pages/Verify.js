@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import api from "../api";
+import api, { API_ORIGIN } from "../api";
 import { Alert, Button } from "../components/UI";
 import { connectMetaMaskWallet } from "../utils/web3";
 
@@ -410,7 +410,7 @@ export default function Verify() {
                     {showDocPreview ? "Hide Preview" : "Show Embedded Preview"}
                   </button>
                   <a
-                    href={`/api/verify/${encodeURIComponent(certId)}/document`}
+                    href={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document`}
                     target="_blank"
                     rel="noreferrer"
                     className="button button-primary"
@@ -424,7 +424,7 @@ export default function Verify() {
               {showDocPreview && (
                 <div style={{ height: "550px", width: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc" }}>
                   <iframe
-                    src={`/api/verify/${encodeURIComponent(certId)}/document`}
+                    src={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document`}
                     title="Official Verified Academic Document"
                     style={{ width: "100%", height: "100%", border: "none" }}
                   />

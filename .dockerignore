@@ -7,3 +7,4 @@ artifacts
 uploads/certificates/*.pdf
 *.log
 .DS_Store
+

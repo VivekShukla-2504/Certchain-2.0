@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../api";
+import api, { API_ORIGIN } from "../api";
 import { Alert, Button } from "../components/UI";
 import { connectMetaMaskWallet } from "../utils/web3";
 
@@ -216,7 +216,7 @@ export default function StudentPortal() {
 
                 <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", paddingTop: "0.5rem" }}>
                   <a
-                    href={`/api/verify/${encodeURIComponent(cert.certId)}/document?wallet=${encodeURIComponent(cert.studentWallet || query)}`}
+                    href={`${API_ORIGIN}/api/verify/${encodeURIComponent(cert.certId)}/document?wallet=${encodeURIComponent(cert.studentWallet || query)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="button button-primary"

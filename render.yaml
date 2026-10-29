@@ -16,7 +16,7 @@ services:
       - key: CHAIN_ID
         value: 11155111
       - key: FRONTEND_URL
-        value: "*"
+        value: https://certchain-2-0.vercel.app
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET

@@ -214,6 +214,15 @@ export default function StudentPortal() {
 
                 <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", paddingTop: "0.5rem" }}>
                   <a
+                    href={`/api/verify/${encodeURIComponent(cert.certId)}/document?wallet=${encodeURIComponent(cert.studentWallet || query)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="button button-primary"
+                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem" }}
+                  >
+                    📄 View & Download Official PDF
+                  </a>
+                  <a
                     href={`/verify/${cert.certId}`}
                     target="_blank"
                     rel="noreferrer"

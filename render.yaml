@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: certchain
+    env: node
+    plan: free
+    buildCommand: "npm --prefix backend install && npm --prefix frontend install && npm --prefix frontend run build"
+    startCommand: "node backend/server.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CONTRACT_ADDRESS
+        value: 0xCa70e753D2DFcd32532Fb3f236B66c9494F01330
+      - key: CHAIN_ID
+        value: 11155111
+      - key: FRONTEND_URL
+        value: "*"
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RPC_URL
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false

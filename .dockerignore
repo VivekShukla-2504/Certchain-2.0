@@ -1,0 +1,9 @@
+node_modules
+*/node_modules
+.git
+.github
+cache
+artifacts
+uploads/certificates/*.pdf
+*.log
+.DS_Store

@@ -25,7 +25,12 @@ function NavItem({ to, label, icon }) {
 export function PublicHeader() {
   const location = useLocation();
   const [walletAddress, setWalletAddress] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const institution = getInstitution();
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     let active = true;
@@ -57,39 +62,20 @@ export function PublicHeader() {
   }
 
   return (
-    <header className="topbar public-topbar" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "1rem", padding: "0.75rem 2vw" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+    <header className="topbar public-topbar">
+      <div className="topbar-brand-area">
         <Link to="/" className="brand-link"><Brand /></Link>
         <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "5px",
-            padding: "2px 8px",
-            borderRadius: "9999px",
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            color: "#1e40af",
-            fontSize: "0.75rem",
-            fontWeight: 600
-          }}
+          className="network-pill-desktop"
           title="Connected to Ethereum Sepolia Testnet"
         >
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
           Sepolia (11155111)
         </span>
-        <a
-          href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: "0.75rem", color: "#64748b", textDecoration: "none", fontFamily: "monospace" }}
-          title="Inspect CertificateRegistry Smart Contract on Etherscan"
-        >
-          Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)} ↗
-        </a>
       </div>
 
-      <nav className="nav-links" aria-label="Primary navigation" style={{ display: "flex", alignItems: "center", gap: "1rem", marginLeft: "auto", flexWrap: "wrap" }}>
+      {/* Desktop Navigation */}
+      <nav className="nav-links desktop-nav-links" aria-label="Primary navigation">
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/student" style={{ fontWeight: 600 }}>
           🎓 Student Portal
         </NavLink>
@@ -98,7 +84,7 @@ export function PublicHeader() {
         </NavLink>
         {institution ? (
           <Link to="/dashboard" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
-            🏛️ Dashboard ({institution.name?.slice(0, 12)}...)
+            🏛️ Dashboard ({institution.name?.slice(0, 10)}...)
           </Link>
         ) : (
           <Link to="/login" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
@@ -108,19 +94,7 @@ export function PublicHeader() {
 
         {walletAddress ? (
           <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              padding: "4px 10px",
-              borderRadius: "9999px",
-              background: "#ecfdf5",
-              border: "1px solid #86efac",
-              color: "#166534",
-              fontSize: "0.8rem",
-              fontFamily: "monospace",
-              fontWeight: 600
-            }}
+            className="wallet-pill"
             title={`Connected MetaMask Account: ${walletAddress}`}
           >
             🦊 {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
@@ -128,20 +102,8 @@ export function PublicHeader() {
         ) : (
           <button
             type="button"
+            className="wallet-connect-btn"
             onClick={handleConnect}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              padding: "4px 10px",
-              borderRadius: "9999px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              color: "#334155",
-              fontSize: "0.8rem",
-              cursor: "pointer",
-              fontWeight: 600
-            }}
           >
             🦊 Connect Wallet
           </button>
@@ -149,7 +111,74 @@ export function PublicHeader() {
 
         <ThemeToggle />
       </nav>
-      <span className="mobile-current" aria-label="Current page">{location.pathname === "/verify" ? "Verification" : "CertChain"}</span>
+
+      {/* Mobile Controls: Theme + Hamburger */}
+      <div className="mobile-header-actions">
+        <ThemeToggle />
+        <button
+          type="button"
+          className="mobile-hamburger-btn"
+          onClick={() => setMobileNavOpen(!mobileNavOpen)}
+          aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"}
+        >
+          {mobileNavOpen ? "✕" : "☰"}
+        </button>
+      </div>
+
+      {/* Mobile Nav Drawer Dropdown */}
+      {mobileNavOpen && (
+        <div className="mobile-nav-drawer">
+          <div className="mobile-nav-status">
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#1e40af" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+              Ethereum Sepolia (Chain 11155111)
+            </span>
+            <a
+              href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: "0.75rem", color: "#64748b", fontFamily: "monospace" }}
+            >
+              Contract: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-6)} ↗
+            </a>
+          </div>
+
+          <div className="mobile-nav-links">
+            <NavLink to="/student" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
+              🎓 Student Credential Vault
+            </NavLink>
+            <NavLink to="/verify" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
+              💼 Employer Verification Portal
+            </NavLink>
+            {institution ? (
+              <Link to="/dashboard" className="mobile-nav-item">
+                🏛️ Institution Dashboard ({institution.name})
+              </Link>
+            ) : (
+              <Link to="/login" className="mobile-nav-item">
+                🏛️ Institution Portal (Sign In / Register)
+              </Link>
+            )}
+          </div>
+
+          <div className="mobile-nav-footer">
+            {walletAddress ? (
+              <div className="wallet-pill full-width" style={{ padding: "8px 12px" }}>
+                🦊 {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)} (Connected)
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="button button-primary full-width"
+                onClick={handleConnect}
+                style={{ padding: "10px" }}
+              >
+                🦊 Connect MetaMask Wallet
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -206,16 +235,8 @@ export function AuthenticatedLayout({ children }) {
           <div className="workspace-header-actions">
             <span className="header-network" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
               <span className="status-dot" style={{ background: "#22c55e" }} />
-              Ethereum Sepolia (11155111)
+              Sepolia (11155111)
             </span>
-            <a
-              href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{ fontSize: "0.8rem", color: "var(--cc-blue)", textDecoration: "underline", fontFamily: "monospace" }}
-            >
-              Contract ↗
-            </a>
             <ThemeToggle />
           </div>
         </header>

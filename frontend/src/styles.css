@@ -506,3 +506,228 @@ textarea.input { height: auto; padding-top: 12px; }
   .public-topbar .nav-links > a:not(.button-secondary) { display: none; }
 }
 @media (max-width: 600px) { .topbar { height: auto; min-height: 64px; padding: 14px 20px; flex-wrap: wrap; } .public-topbar .nav-links { display: none; } .mobile-current { display: block; margin-left: auto; } .nav-links { order: 3; width: 100%; justify-content: space-between; gap: 10px; } .nav-actions { margin-left: auto; } .topbar-signin { display: none; } .home-hero { width: min(100% - 32px, 560px); min-height: auto; grid-template-columns: 1fr; gap: 44px; padding: 56px 0 48px; } .home-hero-copy h1 { font-size: clamp(43px, 14vw, 62px); } .home-lead { font-size: 16px; } .home-proof-card { transform: none; } .home-trust-row { width: min(100% - 32px, 560px); grid-template-columns: 1fr; gap: 22px; } .home-trust-row > div { padding-right: 0; } .home-footer { width: min(100% - 32px, 560px); align-items: flex-start; flex-direction: column; gap: 12px; } .dashboard-heading .button, .certificates-heading .button { width: 100%; } .dashboard-stats, .dashboard-skeleton { grid-template-columns: 1fr 1fr; gap: 9px; } .dashboard-stat { min-height: 122px; padding: 14px; } .dashboard-stat strong { font-size: 28px; } .dashboard-stat .stat-detail { font-size: 10px; } .panel-heading { padding: 18px 16px 15px; } .certificate-row { padding-inline: 16px; } .certificate-date { align-self: flex-start; } .certificate-date small { display: none; } .certificate-toolbar { align-items: stretch; flex-direction: column; padding: 14px 16px; } .status-filter { justify-content: space-between; } .status-filter .select { flex: 1; width: auto; } .certificate-table thead { display: none; } .certificate-table, .certificate-table tbody, .certificate-table tr, .certificate-table td { display: block; width: 100%; } .certificate-table tr { padding: 15px 16px; border-bottom: 1px solid var(--cc-line); } .certificate-table tr:last-child { border-bottom: 0; } .certificate-table td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; border: 0; text-align: right; } .certificate-table td::before { color: var(--cc-subtle); content: attr(data-label); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: left; } .certificate-table td[data-label="Student"] { align-items: flex-start; } .certificate-table td[data-label="Student"] strong, .certificate-table td[data-label="Student"] small { text-align: right; } .pagination { align-items: flex-start; flex-direction: column; padding: 14px 16px; } .certificate-side-column { grid-template-columns: 1fr; } .certificate-details-grid { grid-template-columns: 1fr; gap: 18px; } .certificate-detail-heading .badge { align-self: flex-start; } .transaction-steps { gap: 2px; } .transaction-step { font-size: 9px; } .transaction-step small { font-size: 8px; } .confirmation-heading { flex-wrap: wrap; } .confirmation-heading .badge { margin-left: 51px; } .confirmation-actions { align-items: stretch; flex-direction: column; } .verification-state { gap: 11px; padding: 20px; } .verification-state-title { align-items: flex-start; flex-direction: column; gap: 11px; } .verification-state h2 { font-size: 21px; } .verification-loading { align-items: flex-start; padding: 20px; } .page { width: min(100% - 28px, 560px); padding-top: 32px; } .page-header { align-items: flex-start; flex-direction: column; margin-bottom: 22px; } .card-pad { padding: 20px; } .verify-form { flex-direction: column; } .result-meta { grid-template-columns: 1fr; } .workspace-header { height: 60px; padding: 0 16px; } .header-network { display: none; } .breadcrumbs { font-size: 12px; } }
+
+
+/* ==========================================================================
+   Comprehensive Mobile & Tablet Responsive Architecture
+   ========================================================================== */
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Header & Mobile Drawer Styles */
+.topbar-brand-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.network-pill-desktop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: 11px;
+  font-weight: 600;
+}
+.wallet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-size: 12px;
+  font-family: monospace;
+  font-weight: 600;
+}
+.wallet-connect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  background: var(--cc-paper);
+  border: 1px solid var(--cc-line-strong);
+  color: var(--cc-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.wallet-connect-btn:hover {
+  background: var(--cc-cloud);
+}
+.mobile-header-actions {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.mobile-hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid var(--cc-line-strong);
+  background: var(--cc-paper);
+  color: var(--cc-ink);
+  font-size: 18px;
+  cursor: pointer;
+}
+.mobile-nav-drawer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--cc-paper);
+  border-bottom: 2px solid var(--cc-line-strong);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mobile-nav-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cc-line);
+}
+.mobile-nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 11px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cc-ink);
+  background: var(--cc-cloud);
+  text-decoration: none;
+}
+.mobile-nav-item.active {
+  background: var(--cc-navy);
+  color: #ffffff;
+}
+.mobile-nav-footer {
+  padding-top: 8px;
+}
+.full-width {
+  width: 100% !important;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Tablet & Mobile Breakpoint (max-width: 860px) */
+@media (max-width: 860px) {
+  .topbar {
+    position: relative;
+    padding: 10px 16px;
+    height: 60px;
+  }
+  .network-pill-desktop {
+    display: none;
+  }
+  .desktop-nav-links {
+    display: none !important;
+  }
+  .mobile-header-actions {
+    display: flex;
+  }
+  .page {
+    width: 100%;
+    padding: 20px 14px;
+  }
+  .home-hero {
+    width: 100%;
+    padding: 32px 16px;
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .home-hero-copy h1 {
+    font-size: clamp(34px, 8vw, 50px);
+  }
+  .home-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+  .home-actions .button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+  .home-trust-row {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 24px 16px;
+  }
+  .split-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .certificate-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    display: block;
+  }
+}
+
+/* Small Smartphone Breakpoint (max-width: 520px) */
+@media (max-width: 520px) {
+  .topbar {
+    padding: 8px 12px;
+  }
+  .brand {
+    font-size: 15px;
+  }
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    font-size: 15px;
+  }
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+  .home-hero-copy h1 {
+    font-size: 30px;
+    line-height: 1.1;
+  }
+  .home-lead {
+    font-size: 14px;
+  }
+  .card-pad {
+    padding: 14px;
+  }
+  .input, .select, .button {
+    font-size: 14px;
+  }
+  .verify-hero h1 {
+    font-size: 1.6rem !important;
+  }
+  .verify-hero p.lead {
+    font-size: 0.95rem !important;
+  }
+}

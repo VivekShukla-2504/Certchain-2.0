@@ -100,7 +100,7 @@ export default function StudentPortal() {
             <input
               type="text"
               className="input"
-              style={{ flex: 1, minWidth: 280 }}
+              style={{ flex: 1, minWidth: "min(260px, 100%)" }}
               placeholder="e.g. Roll No (2022CS01) / Wallet (0x...) / Cert ID"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

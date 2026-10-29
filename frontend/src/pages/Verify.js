@@ -166,7 +166,7 @@ export default function Verify() {
           <span className="badge badge-neutral">Ethereum Sepolia Powered</span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: "1rem" }}>
           <label className="field">
             <span style={{ fontWeight: 600 }}>Certificate ID (from Student) *</span>
             <input
@@ -193,7 +193,7 @@ export default function Verify() {
           </label>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem", marginTop: "0.75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: "1rem", marginTop: "0.75rem" }}>
           <label className="field">
             <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontWeight: 600 }}>Employer Wallet (Optional)</span>
@@ -365,7 +365,7 @@ export default function Verify() {
               <h3 style={{ margin: "0 0 0.75rem", color: "#0f172a", fontSize: "1.1rem" }}>
                 ⛓️ On-Chain Cryptographic Proofs
               </h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: "1rem" }}>
                 <div style={{ padding: "0.85rem", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
                   <span className="meta-label">🏛️ Institute Signer Address (Issuer)</span>
                   <strong style={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}>
@@ -422,7 +422,7 @@ export default function Verify() {
               </div>
 
               {showDocPreview && (
-                <div style={{ height: "550px", width: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc" }}>
+                <div style={{ height: "clamp(360px, 60vh, 550px)", width: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc" }}>
                   <iframe
                     src={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document`}
                     title="Official Verified Academic Document"

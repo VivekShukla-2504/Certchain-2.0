@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { Alert, Button, Field, PasswordField } from "../components/UI";
+import { connectMetaMaskWallet } from "../utils/web3";
 
 export default function Signup() {
   const [form, setForm] = useState({ name: "", institutionId: "", email: "", password: "", walletAddress: "" });
@@ -15,6 +16,15 @@ export default function Signup() {
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     setFieldErrors((errors) => ({ ...errors, [field]: "" }));
+  }
+
+  async function handleConnect() {
+    try {
+      const addr = await connectMetaMaskWallet();
+      update("walletAddress", addr);
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   async function handleSubmit(e) {
@@ -43,13 +53,20 @@ export default function Signup() {
     }
   }
 
-  return <div className="page page-narrow"><div className="page-header"><div><span className="eyebrow">Get started</span><h1>Register institution</h1><p className="lead">Set up your organization to issue verifiable credentials.</p></div></div>
+  return <div className="page page-narrow"><div className="page-header"><div><span className="eyebrow">Get started</span><h1>Register institution</h1><p className="lead">Set up your university or organization to issue verifiable credentials on Ethereum.</p></div></div>
     <div className="card card-pad"><form className="form" onSubmit={handleSubmit}>
-      <Field label="Institution name"><input className="input" placeholder="University or organization" value={form.name} onChange={(e) => update("name", e.target.value)} required /></Field>
-      <Field label="Institution ID" hint={fieldErrors.institutionId ? "" : "Use 2-40 letters, numbers, hyphens or underscores."}><input className={`input ${fieldErrors.institutionId ? "input-error" : ""}`} placeholder="e.g. JNU" value={form.institutionId} onChange={(e) => update("institutionId", e.target.value)} aria-invalid={!!fieldErrors.institutionId} required />{fieldErrors.institutionId && <span className="field-error">{fieldErrors.institutionId}</span>}</Field>
-      <Field label="Admin email"><input className="input" type="email" placeholder="admin@institution.edu" value={form.email} onChange={(e) => update("email", e.target.value)} required /></Field>
+      <Field label="Institution name"><input className="input" placeholder="e.g. Delhi Technological University" value={form.name} onChange={(e) => update("name", e.target.value)} required /></Field>
+      <Field label="Institution ID" hint={fieldErrors.institutionId ? "" : "Short identifier (e.g. DTU, IITD, JNU)"}><input className={`input ${fieldErrors.institutionId ? "input-error" : ""}`} placeholder="e.g. DTU" value={form.institutionId} onChange={(e) => update("institutionId", e.target.value)} aria-invalid={!!fieldErrors.institutionId} required />{fieldErrors.institutionId && <span className="field-error">{fieldErrors.institutionId}</span>}</Field>
+      <Field label="Admin email"><input className="input" type="email" placeholder="admin@university.edu" value={form.email} onChange={(e) => update("email", e.target.value)} required /></Field>
       <PasswordField label="Password" placeholder="Create a secure password" value={form.password} onChange={(e) => update("password", e.target.value)} hint="Use at least 8 characters." required />
-      <Field label="Wallet address" hint="Use a test account address from your local Hardhat node."><input className="input mono" placeholder="0x..." value={form.walletAddress} onChange={(e) => update("walletAddress", e.target.value)} required /></Field>
+      <Field label="Ethereum Sepolia Issuer Wallet" hint="Connect your MetaMask or enter your Ethereum Sepolia public address.">
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input className="input mono" style={{ flex: 1, fontSize: "0.85rem" }} placeholder="0x..." value={form.walletAddress} onChange={(e) => update("walletAddress", e.target.value)} required />
+          <button type="button" className="button button-secondary" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem", whiteSpace: "nowrap" }} onClick={handleConnect}>
+            🦊 Connect MetaMask
+          </button>
+        </div>
+      </Field>
       {error && <Alert>{error}</Alert>}
       {done && <Alert type="success">{successMessage}</Alert>}
       <Button className="button-block" type="submit" loading={loading}>{loading ? "Creating institution" : "Create institution"}</Button>

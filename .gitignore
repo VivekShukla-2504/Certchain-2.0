@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Test coverage
+coverage/
+
+# Build output
+build/
+dist/
+artifacts/
+cache/
+backend/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*

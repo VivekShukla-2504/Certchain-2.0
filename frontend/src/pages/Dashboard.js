@@ -65,13 +65,26 @@ export default function Dashboard() {
     try {
       const res = await api.post(`/verify/approve/${encodeURIComponent(request.requestId)}`);
       setVerificationRequests((current) =>
-        current.map((r) => (r.requestId === request.requestId ? { ...r, status: "approved" } : r))
+        current.map((r) => (r.requestId === request.requestId ? { ...r, status: "approved", txHash: res.data.request?.txHash } : r))
       );
       setActionSuccess(`Certificate ${request.certId} verified and authorized for ${request.employerName} on-chain!`);
     } catch (err) {
       alert(err.response?.data?.message || "Failed to approve verification request.");
     } finally {
       setApprovingId("");
+    }
+  }
+
+  async function handleReject(request) {
+    if (!window.confirm(`Reject verification request for ${request.certId}?`)) return;
+    try {
+      await api.post(`/verify/reject/${encodeURIComponent(request.requestId)}`);
+      setVerificationRequests((current) =>
+        current.map((r) => (r.requestId === request.requestId ? { ...r, status: "rejected" } : r))
+      );
+      setActionSuccess(`Verification request for ${request.certId} rejected.`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to reject request.");
     }
   }
 
@@ -210,20 +223,42 @@ export default function Dashboard() {
                       </td>
                       <td data-label="Action">
                         {req.status === "pending" && canManage ? (
-                          <Button
-                            type="button"
-                            onClick={() => handleApprove(req)}
-                            loading={approvingId === req.requestId}
-                            style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem" }}
-                          >
-                            {approvingId === req.requestId ? "Signing On-Chain..." : "✓ Verify & Grant Access"}
-                          </Button>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <Button
+                              type="button"
+                              onClick={() => handleApprove(req)}
+                              loading={approvingId === req.requestId}
+                              style={{ fontSize: "0.8rem", padding: "0.35rem 0.7rem" }}
+                            >
+                              {approvingId === req.requestId ? "Signing..." : "✓ Approve"}
+                            </Button>
+                            <button
+                              type="button"
+                              className="button button-secondary"
+                              onClick={() => handleReject(req)}
+                              style={{ fontSize: "0.8rem", padding: "0.35rem 0.6rem", color: "#dc2626" }}
+                            >
+                              ✕ Reject
+                            </button>
+                          </div>
                         ) : req.status === "approved" ? (
-                          <span style={{ fontSize: "0.85rem", color: "#059669", fontWeight: 600 }}>
-                            Authorized
-                          </span>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontSize: "0.85rem", color: "#059669", fontWeight: 600 }}>
+                              ✓ Authorized
+                            </span>
+                            {req.txHash && req.txHash.startsWith("0x") && (
+                              <a
+                                href={`https://sepolia.etherscan.io/tx/${req.txHash}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: "0.75rem", color: "#2563eb", textDecoration: "underline" }}
+                              >
+                                View Tx ↗
+                              </a>
+                            )}
+                          </div>
                         ) : (
-                          <span className="muted small">—</span>
+                          <span className="muted small">Rejected</span>
                         )}
                       </td>
                     </tr>

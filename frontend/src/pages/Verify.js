@@ -6,37 +6,36 @@ import { connectMetaMaskWallet } from "../utils/web3";
 
 export default function Verify() {
   const { certificateId } = useParams();
-  const [activeTab, setActiveTab] = useState("employer"); // "employer" | "pdf_hash"
+  const [activeTab, setActiveTab] = useState("employer"); // "employer" | "tamper_test"
 
   // Employer verification form state
   const [certId, setCertId] = useState("");
   const [employerName, setEmployerName] = useState("");
   const [employerWallet, setEmployerWallet] = useState("");
   const [employerEmail, setEmployerEmail] = useState("");
-  
+
   // Status & result state
   const [verificationStatus, setVerificationStatus] = useState("idle"); // "idle" | "loading" | "pending" | "approved" | "not_found" | "error"
   const [statusMessage, setStatusMessage] = useState("");
   const [requestDetails, setRequestDetails] = useState(null);
   const [approvedDetails, setApprovedDetails] = useState(null);
+  const [attestation, setAttestation] = useState(null);
   const [polling, setPolling] = useState(false);
+  const [showDocPreview, setShowDocPreview] = useState(true);
   const pollTimerRef = useRef(null);
 
-  // Manual PDF Integrity fields (Secondary mode)
-  const [certificateFields, setCertificateFields] = useState({
-    candidateName: "",
-    rollNumber: "",
-    institutionId: "",
-    documentType: "Degree",
-    course: "",
-    grade: "",
-    issueDate: ""
-  });
-  const [documentFile, setDocumentFile] = useState(null);
-  const [pdfResult, setPdfResult] = useState(null);
-  const [pdfState, setPdfState] = useState("idle");
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfError, setPdfError] = useState("");
+  // Manual File Tamper Testing
+  const [tamperCertId, setTamperCertId] = useState("");
+  const [tamperFile, setTamperFile] = useState(null);
+  const [tamperCandidate, setTamperCandidate] = useState("");
+  const [tamperCourse, setTamperCourse] = useState("");
+  const [tamperRoll, setTamperRoll] = useState("");
+  const [tamperGrade, setTamperGrade] = useState("");
+  const [tamperDate, setTamperDate] = useState("");
+  const [tamperInst, setTamperInst] = useState("");
+  const [tamperResult, setTamperResult] = useState(null);
+  const [tamperLoading, setTamperLoading] = useState(false);
+  const [tamperError, setTamperError] = useState("");
 
   // Stop polling on unmount
   useEffect(() => {
@@ -63,8 +62,6 @@ export default function Verify() {
     }
   }
 
-
-
   // Check verification status from backend & smart contract
   async function checkStatus(targetCertId = certId, silent = false) {
     const normalized = targetCertId.trim().toUpperCase();
@@ -81,6 +78,13 @@ export default function Verify() {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
           setPolling(false);
+        }
+        // Fetch formal attestation receipt
+        try {
+          const attestRes = await api.get(`/verify/${encodeURIComponent(normalized)}/attestation`);
+          setAttestation(attestRes.data);
+        } catch (e) {
+          // ignore
         }
       } else {
         setVerificationStatus("pending");
@@ -113,6 +117,7 @@ export default function Verify() {
     setVerificationStatus("loading");
     setApprovedDetails(null);
     setRequestDetails(null);
+    setAttestation(null);
 
     try {
       const res = await api.post("/verify/request", {
@@ -123,7 +128,6 @@ export default function Verify() {
       });
 
       if (res.data.approved) {
-        // Already approved! Fetch full status
         await checkStatus(normalized);
       } else {
         setVerificationStatus("pending");
@@ -151,77 +155,107 @@ export default function Verify() {
     }, 3500);
   }
 
-  // Secondary mode: direct file hash check
-  async function handlePdfVerify(e) {
+  // File Tamper / Forgery Check
+  async function handleTamperVerify(e) {
     e.preventDefault();
-    const normalized = certId.trim().toUpperCase();
+    const normalized = tamperCertId.trim().toUpperCase();
     if (!normalized) {
-      setPdfError("Enter a certificate ID");
-      setPdfState("error");
+      setTamperError("Enter a certificate ID");
       return;
     }
-    setPdfLoading(true);
-    setPdfError("");
-    setPdfResult(null);
-    setPdfState("loading");
+    if (!tamperFile) {
+      setTamperError("Upload the certificate PDF file to test its cryptographic signature");
+      return;
+    }
+
+    setTamperLoading(true);
+    setTamperError("");
+    setTamperResult(null);
 
     try {
       const payload = new FormData();
       payload.append("certId", normalized);
-      if (documentFile) payload.append("document", documentFile);
-      Object.entries(certificateFields).forEach(([k, v]) => payload.append(k, v.trim()));
+      payload.append("document", tamperFile);
+      payload.append("candidateName", tamperCandidate);
+      payload.append("rollNumber", tamperRoll);
+      payload.append("course", tamperCourse);
+      payload.append("grade", tamperGrade);
+      payload.append("issueDate", tamperDate);
+      payload.append("institutionId", tamperInst);
+      payload.append("documentType", "Degree");
 
       const res = await api.post("/verify", payload);
-      setPdfResult(res.data);
-      setPdfState(res.data.revoked ? "revoked" : res.data.verified ? "verified" : "invalid");
+      setTamperResult(res.data);
     } catch (err) {
-      setPdfState("error");
-      setPdfError(err.response?.data?.message || "Verification failed");
+      setTamperError(err.response?.data?.message || "Verification failed: Check that details match exactly");
     } finally {
-      setPdfLoading(false);
+      setTamperLoading(false);
     }
   }
 
   return (
-    <div className="page public-verify-page">
-      <div className="verify-hero">
-        <span className="eyebrow">Enterprise & Academic Verification</span>
-        <h1>Employer Credential Verification</h1>
-        <p className="lead">
-          3-Stakeholder Asymmetric Architecture: Student shares <code>certId</code> ➔ Employer requests verification ➔ Issuing Institute cryptographically authorizes on-chain ➔ Official credentials and verified document are unlocked.
+    <div className="page public-verify-page" style={{ maxWidth: 1040, margin: "0 auto", padding: "2rem 1rem" }}>
+      {/* Header */}
+      <div className="verify-hero" style={{ textAlign: "center", marginBottom: "2rem" }}>
+        <span className="eyebrow" style={{ letterSpacing: "1px", textTransform: "uppercase", color: "#2563eb", fontWeight: 700 }}>
+          🔒 DigiLocker & Web3 Attestation Standard
+        </span>
+        <h1 style={{ fontSize: "2.25rem", margin: "0.5rem 0" }}>Employer Credential Verification</h1>
+        <p className="lead" style={{ maxWidth: 750, margin: "0 auto", color: "#64748b" }}>
+          Verify academic degrees with multi-party authorization: Student provides <strong>Certificate ID</strong> ➔ Issuing Institute cryptographically authorizes access ➔ Verified document and on-chain proofs are unlocked.
         </p>
 
-        {/* Tab Selection */}
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+        {/* Tab Controls */}
+        <div style={{ display: "inline-flex", background: "#f1f5f9", padding: "0.35rem", borderRadius: "10px", marginTop: "1.5rem", gap: "0.5rem" }}>
           <button
             type="button"
-            className={`button ${activeTab === "employer" ? "button-primary" : "button-secondary"}`}
+            className="button"
+            style={{
+              background: activeTab === "employer" ? "#ffffff" : "transparent",
+              color: activeTab === "employer" ? "#0f172a" : "#64748b",
+              boxShadow: activeTab === "employer" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              fontWeight: 600
+            }}
             onClick={() => setActiveTab("employer")}
           >
-            🏢 Employer Verification (With Institute Approval)
+            🏢 1. Employer Credential Lookup & Approval
           </button>
           <button
             type="button"
-            className={`button ${activeTab === "pdf_hash" ? "button-primary" : "button-secondary"}`}
-            onClick={() => setActiveTab("pdf_hash")}
+            className="button"
+            style={{
+              background: activeTab === "tamper_test" ? "#ffffff" : "transparent",
+              color: activeTab === "tamper_test" ? "#0f172a" : "#64748b",
+              boxShadow: activeTab === "tamper_test" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              fontWeight: 600
+            }}
+            onClick={() => setActiveTab("tamper_test")}
           >
-            🔍 Direct PDF Hash Check
+            🔍 2. PDF Tamper & Integrity Check
           </button>
         </div>
+      </div>
 
-        {/* Employer Verification Form */}
-        {activeTab === "employer" && (
-          <form className="verify-form card card-pad" onSubmit={handleEmployerSubmit} style={{ marginBottom: "2rem" }}>
-            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>1. Enter Certificate ID & Employer Identity</h3>
-            <p className="muted small" style={{ marginBottom: "1.25rem" }}>
-              Provide the Certificate ID shared by the student. Your verification request will be forwarded to the issuing institute for cryptographic approval.
-            </p>
+      {/* Mode 1: Employer Verification */}
+      {activeTab === "employer" && (
+        <>
+          <form className="card card-pad" onSubmit={handleEmployerSubmit} style={{ marginBottom: "2rem", borderTop: "4px solid #2563eb" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", marginBottom: "1rem" }}>
+              <div>
+                <h3 style={{ margin: 0 }}>Enter Candidate Certificate ID</h3>
+                <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
+                  Enter the unique Certificate ID shared by the student candidate.
+                </p>
+              </div>
+              <span className="badge badge-neutral">Ethereum Sepolia Powered</span>
+            </div>
 
-            <div className="verify-entry-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem" }}>
               <label className="field">
-                <span>Certificate ID (from Student) *</span>
+                <span style={{ fontWeight: 600 }}>Certificate ID (from Student) *</span>
                 <input
                   className="input"
+                  style={{ fontFamily: "monospace", letterSpacing: "0.5px" }}
                   placeholder="e.g. CERT-7F3A2B..."
                   value={certId}
                   onChange={(e) => {
@@ -233,38 +267,39 @@ export default function Verify() {
               </label>
 
               <label className="field">
-                <span>Employer / Organization Name</span>
+                <span style={{ fontWeight: 600 }}>Employer / Organization Name</span>
                 <input
                   className="input"
-                  placeholder="e.g. Google HR / Tata Consultancy Services"
+                  placeholder="e.g. Google HR, Tata Consultancy Services"
                   value={employerName}
                   onChange={(e) => setEmployerName(e.target.value)}
                 />
               </label>
             </div>
 
-            <div className="verify-entry-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "0.75rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem", marginTop: "0.75rem" }}>
               <label className="field">
-                <span style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Employer Sepolia Public Key (Wallet)</span>
+                <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontWeight: 600 }}>Employer Wallet (Optional)</span>
                   <button
                     type="button"
                     onClick={handleConnectEmployerMetaMask}
-                    style={{ background: "none", border: "none", color: "var(--color-primary, #2563eb)", cursor: "pointer", fontSize: "0.85rem", padding: 0, fontWeight: 600 }}
+                    style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", fontSize: "0.85rem", padding: 0, fontWeight: 600 }}
                   >
-                    🦊 Connect MetaMask (Sepolia)
+                    🦊 Connect MetaMask
                   </button>
                 </span>
                 <input
                   className="input"
-                  placeholder="0x... (Sepolia Wallet)"
+                  style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
+                  placeholder="0x... (Your Sepolia Address)"
                   value={employerWallet}
                   onChange={(e) => setEmployerWallet(e.target.value)}
                 />
               </label>
 
               <label className="field">
-                <span>Employer Recruiter Email (Optional)</span>
+                <span style={{ fontWeight: 600 }}>Recruiter Contact Email (Optional)</span>
                 <input
                   className="input"
                   type="email"
@@ -275,254 +310,375 @@ export default function Verify() {
               </label>
             </div>
 
-            <div style={{ marginTop: "1.25rem", display: "flex", gap: "0.75rem" }}>
+            <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
               <Button type="submit" loading={verificationStatus === "loading"}>
-                {verificationStatus === "loading" ? "Submitting Request..." : "Verify Credential with Institute"}
+                {verificationStatus === "loading" ? "Querying Blockchain..." : "🔍 Verify Credential with Institute"}
               </Button>
               {certId && (
                 <Button type="button" variant="secondary" onClick={() => checkStatus(certId)}>
-                  🔄 Check Status Directly
+                  🔄 Refresh Status
                 </Button>
               )}
             </div>
           </form>
-        )}
 
-        {/* Direct PDF Hash Check Form */}
-        {activeTab === "pdf_hash" && (
-          <form className="verify-form verify-form-stacked card card-pad" onSubmit={handlePdfVerify} style={{ marginBottom: "2rem" }}>
-            <h3 style={{ marginTop: 0 }}>Cryptographic Hash Commitment Check</h3>
-            <p className="muted small">Directly recalculates the SHA-256 byte digest and tests against the on-chain smart contract hash.</p>
-            <div className="verify-entry-row">
+          {/* Pending Status Banner */}
+          {verificationStatus === "pending" && (
+            <div className="card card-pad" style={{ borderLeft: "6px solid #f59e0b", background: "#fffdf5", marginBottom: "2rem" }}>
+              <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
+                <div style={{ fontSize: "2.5rem" }}>⏳</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <h2 style={{ margin: 0, color: "#92400e" }}>Awaiting Institute Verification & On-Chain Approval</h2>
+                    <span className="badge" style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "0.35rem 0.75rem" }}>
+                      Pending Institute Signature
+                    </span>
+                  </div>
+                  <p style={{ color: "#78350f", margin: "0.75rem 0 1rem", lineHeight: 1.6 }}>
+                    Certificate <strong>{certId}</strong> has been located in the blockchain registry! To prevent unauthorized public exposure of personal academic documents, <strong>the issuing institution ({requestDetails?.institutionId || "University"}) has been notified to verify candidate identity and grant access</strong>.
+                  </p>
+
+                  <div style={{ background: "#ffffff", padding: "1rem", borderRadius: "8px", border: "1px solid #fde68a", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                    {requestDetails?.requestId && (
+                      <div>
+                        <span className="meta-label">Request Ticket</span>
+                        <strong style={{ fontFamily: "monospace" }}>{requestDetails.requestId}</strong>
+                      </div>
+                    )}
+                    {requestDetails?.institutionId && (
+                      <div>
+                        <span className="meta-label">Issuing Authority</span>
+                        <strong>{requestDetails.institutionId}</strong>
+                      </div>
+                    )}
+                    {requestDetails?.candidateName && (
+                      <div>
+                        <span className="meta-label">Candidate</span>
+                        <strong>{requestDetails.candidateName}</strong>
+                      </div>
+                    )}
+                    <div>
+                      <span className="meta-label">Live Status Sync</span>
+                      <span style={{ color: "#059669", fontWeight: 600 }}>
+                        {polling ? "● Polling for smart contract authorization..." : "Idle"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "1.25rem", display: "flex", gap: "0.75rem" }}>
+                    <Button type="button" variant="secondary" onClick={() => checkStatus(certId)}>
+                      🔄 Check Status Now
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Approved & Fully Verified Credential View (DigiLocker Style) */}
+          {verificationStatus === "approved" && approvedDetails && (
+            <div style={{ display: "grid", gap: "2rem", marginBottom: "2rem" }}>
+              {/* DigiLocker Official Verification Badge Card */}
+              <div
+                className="card card-pad"
+                style={{
+                  borderLeft: "6px solid #10b981",
+                  background: "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)",
+                  boxShadow: "0 10px 25px -5px rgba(16, 185, 129, 0.1)"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                  <div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "#d1fae5", color: "#065f46", padding: "0.35rem 0.75rem", borderRadius: "9999px", fontWeight: 700, fontSize: "0.85rem", marginBottom: "0.5rem" }}>
+                      <span>✓</span> 100% AUTHENTIC & VERIFIED CREDENTIAL
+                    </div>
+                    <h2 style={{ margin: "0.25rem 0 0.5rem", color: "#065f46" }}>
+                      Academic Degree Confirmed on Ethereum Sepolia
+                    </h2>
+                    <p className="muted small" style={{ margin: 0 }}>
+                      This credential has been mathematically verified against the smart contract and authorized by the issuing university.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => window.print()}
+                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem" }}
+                  >
+                    🖨️ Print Verification Proof
+                  </button>
+                </div>
+
+                {/* Candidate Academic Details */}
+                {approvedDetails.certificate && (
+                  <div style={{ marginTop: "1.5rem", background: "#ffffff", padding: "1.25rem", borderRadius: "10px", border: "1px solid #bbf7d0" }}>
+                    <h3 style={{ margin: "0 0 1rem", color: "#0f172a", fontSize: "1.1rem" }}>
+                      🎓 Student Academic Record
+                    </h3>
+                    <div className="public-result-meta" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.25rem" }}>
+                      <div>
+                        <span className="meta-label">Candidate Name</span>
+                        <strong style={{ fontSize: "1.05rem", color: "#0f172a" }}>{approvedDetails.certificate.candidateName}</strong>
+                      </div>
+                      <div>
+                        <span className="meta-label">Roll Number / ID</span>
+                        <strong style={{ fontSize: "1.05rem" }}>{approvedDetails.certificate.rollNumber}</strong>
+                      </div>
+                      <div>
+                        <span className="meta-label">Course / Degree</span>
+                        <strong style={{ fontSize: "1.05rem", color: "#2563eb" }}>{approvedDetails.certificate.course}</strong>
+                      </div>
+                      <div>
+                        <span className="meta-label">Grade / CGPA</span>
+                        <strong style={{ fontSize: "1.05rem", color: "#059669" }}>{approvedDetails.certificate.grade}</strong>
+                      </div>
+                      <div>
+                        <span className="meta-label">Document Type</span>
+                        <strong>{approvedDetails.certificate.documentType}</strong>
+                      </div>
+                      <div>
+                        <span className="meta-label">Date of Issuance</span>
+                        <strong>{new Date(approvedDetails.certificate.issueDate).toLocaleDateString()}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4 Cryptographic Trust Pillars */}
+                <div style={{ marginTop: "1.5rem" }}>
+                  <h3 style={{ margin: "0 0 0.75rem", color: "#0f172a", fontSize: "1.1rem" }}>
+                    ⛓️ On-Chain Cryptographic Proofs
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                    <div style={{ padding: "0.85rem", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                      <span className="meta-label">🏛️ Institute Signer Address (Issuer)</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}>
+                        {approvedDetails.issuerWallet}
+                      </strong>
+                    </div>
+
+                    <div style={{ padding: "0.85rem", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                      <span className="meta-label">🎓 Student Recipient Address (Owner)</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}>
+                        {approvedDetails.studentWallet || "Unassigned"}
+                      </strong>
+                    </div>
+
+                    <div style={{ padding: "0.85rem", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                      <span className="meta-label">📦 Decentralized IPFS Content ID (CID)</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}>
+                        {approvedDetails.ipfsCid || "Pinned to IPFS"}
+                      </strong>
+                    </div>
+
+                    <div style={{ padding: "0.85rem", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                      <span className="meta-label">⛓️ On-Chain Approval Transaction</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}>
+                        {approvedDetails.txHash || "Signed on Sepolia"}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Embedded Official Document Preview */}
+                <div style={{ marginTop: "2rem", borderTop: "1px solid #bbf7d0", paddingTop: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <h3 style={{ margin: 0, color: "#0f172a" }}>📄 Official Verified Certificate Document</h3>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
+                        onClick={() => setShowDocPreview(!showDocPreview)}
+                      >
+                        {showDocPreview ? "Hide Preview" : "Show Embedded Preview"}
+                      </button>
+                      <a
+                        href={`/api/verify/${encodeURIComponent(certId)}/document`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="button button-primary"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                      >
+                        ↗ Open Fullscreen PDF
+                      </a>
+                    </div>
+                  </div>
+
+                  {showDocPreview && (
+                    <div style={{ height: "550px", width: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc" }}>
+                      <iframe
+                        src={`/api/verify/${encodeURIComponent(certId)}/document`}
+                        title="Official Verified Academic Document"
+                        style={{ width: "100%", height: "100%", border: "none" }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Attestation Summary Bar */}
+                {attestation && (
+                  <div style={{ marginTop: "1.5rem", padding: "0.85rem 1rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span className="muted small">
+                      Attestation ID: <code style={{ fontWeight: 600 }}>{attestation.attestationId}</code> · Verified on Ethereum Sepolia
+                    </span>
+                    <span style={{ color: "#059669", fontWeight: 600, fontSize: "0.85rem" }}>
+                      ✓ Digital Proof Stamped
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Not Found State */}
+          {verificationStatus === "not_found" && (
+            <div className="card card-pad not-found" style={{ textAlign: "center", padding: "3rem 1rem" }}>
+              <div style={{ fontSize: "2.5rem" }}>❓</div>
+              <h2 style={{ marginTop: "0.75rem" }}>Certificate Not Found</h2>
+              <p className="muted small" style={{ maxWidth: 500, margin: "0 auto 1.5rem" }}>
+                No active certificate record was found matching ID: <code>{certId}</code>.
+                Please ensure you entered the exact ID printed on the document or shared by the student.
+              </p>
+              <Button type="button" variant="secondary" onClick={() => setVerificationStatus("idle")}>
+                Try Another Certificate ID
+              </Button>
+            </div>
+          )}
+
+          {/* Error State */}
+          {verificationStatus === "error" && (
+            <Alert style={{ marginBottom: "1.5rem" }}>{statusMessage}</Alert>
+          )}
+        </>
+      )}
+
+      {/* Mode 2: PDF Tamper / Forgery Simulator */}
+      {activeTab === "tamper_test" && (
+        <form className="card card-pad" onSubmit={handleTamperVerify} style={{ borderTop: "4px solid #059669" }}>
+          <h3 style={{ margin: "0 0 0.5rem" }}>Direct PDF Cryptographic Tamper Detector</h3>
+          <p className="muted small" style={{ marginBottom: "1.5rem" }}>
+            Upload the physical PDF file received from a candidate. The system will recalculate its SHA-256 byte digest and check it directly against the immutable smart contract record. If even a single comma or byte has been edited, the check will detect the forgery.
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Certificate ID *</span>
               <input
                 className="input"
-                placeholder="Certificate ID *"
-                value={certId}
-                onChange={(e) => setCertId(e.target.value)}
+                placeholder="e.g. CERT-..."
+                value={tamperCertId}
+                onChange={(e) => setTamperCertId(e.target.value)}
                 required
               />
+            </label>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Candidate Name</span>
+              <input
+                className="input"
+                placeholder="Printed Name"
+                value={tamperCandidate}
+                onChange={(e) => setTamperCandidate(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "0.75rem" }}>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Roll Number</span>
+              <input
+                className="input"
+                placeholder="Printed Roll Number"
+                value={tamperRoll}
+                onChange={(e) => setTamperRoll(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Course / Degree</span>
+              <input
+                className="input"
+                placeholder="Printed Course"
+                value={tamperCourse}
+                onChange={(e) => setTamperCourse(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginTop: "0.75rem" }}>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Grade</span>
+              <input
+                className="input"
+                placeholder="e.g. A+"
+                value={tamperGrade}
+                onChange={(e) => setTamperGrade(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Issue Date</span>
+              <input
+                className="input"
+                type="date"
+                value={tamperDate}
+                onChange={(e) => setTamperDate(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Institution ID</span>
+              <input
+                className="input"
+                placeholder="e.g. JNU"
+                value={tamperInst}
+                onChange={(e) => setTamperInst(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            <label className="field">
+              <span style={{ fontWeight: 600 }}>Upload Certificate PDF to Test *</span>
               <input
                 className="input"
                 type="file"
                 accept="application/pdf,.pdf"
-                onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                onChange={(e) => setTamperFile(e.target.files?.[0] || null)}
+                required
               />
-            </div>
-            <Button type="submit" loading={pdfLoading}>{pdfLoading ? "Verifying..." : "Verify Hash Integrity"}</Button>
-          </form>
-        )}
-      </div>
-
-      {/* Loading Indicator */}
-      {verificationStatus === "loading" && (
-        <div className="verification-loading card card-pad">
-          <span className="verification-loader" />
-          <div>
-            <h3>Consulting Blockchain & Institution Registry</h3>
-            <p>Querying smart contract authorization and verification requests...</p>
+            </label>
           </div>
-        </div>
-      )}
 
-      {/* State: Awaiting Institute Verification & Approval */}
-      {verificationStatus === "pending" && (
-        <div className="verification-state card card-pad" style={{ borderLeft: "5px solid #f59e0b", background: "#fffbeb" }}>
-          <div className="verification-state-icon" style={{ background: "#fef3c7", color: "#b45309" }}>⏳</div>
-          <div className="verification-state-copy" style={{ width: "100%" }}>
-            <div className="verification-state-title">
-              <div>
-                <span className="eyebrow" style={{ color: "#b45309" }}>Authorization Gate</span>
-                <h2 style={{ color: "#92400e" }}>Awaiting Institute Verification & Approval</h2>
-              </div>
-              <span className="badge" style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}>
-                Pending Institute Approval
-              </span>
-            </div>
+          <div style={{ marginTop: "1.5rem" }}>
+            <Button type="submit" loading={tamperLoading}>
+              {tamperLoading ? "Hashing & Verifying with Ethereum..." : "🔍 Run Tamper Check"}
+            </Button>
+          </div>
 
-            <p style={{ color: "#78350f", fontSize: "0.95rem" }}>
-              Certificate <strong>{certId}</strong> has been located in the registry! In accordance with strict academic privacy and tamper-prevention rules, <strong>the issuing institution ({requestDetails?.institutionId || "Institute"}) must review and authorize access</strong> before the official document and candidate credentials can be disclosed.
-            </p>
+          {tamperError && <Alert style={{ marginTop: "1.5rem" }}>{tamperError}</Alert>}
 
-            <div className="public-result-meta" style={{ background: "#ffffff", padding: "1rem", borderRadius: "8px", border: "1px solid #fde68a" }}>
-              {requestDetails?.requestId && (
+          {tamperResult && (
+            <div
+              className="card card-pad"
+              style={{
+                marginTop: "1.5rem",
+                borderLeft: `5px solid ${tamperResult.verified ? "#10b981" : "#ef4444"}`,
+                background: tamperResult.verified ? "#f0fdf4" : "#fef2f2"
+              }}
+            >
+              <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+                <span style={{ fontSize: "2rem" }}>{tamperResult.verified ? "✅" : "❌"}</span>
                 <div>
-                  <span className="meta-label">Request ID</span>
-                  <strong style={{ fontFamily: "monospace" }}>{requestDetails.requestId}</strong>
+                  <h3 style={{ margin: 0, color: tamperResult.verified ? "#065f46" : "#991b1b" }}>
+                    {tamperResult.verified ? "Document is 100% Authentic" : "Tamper Detected: Document Altered"}
+                  </h3>
+                  <p style={{ margin: "0.25rem 0 0", color: tamperResult.verified ? "#047857" : "#b91c1c" }}>
+                    {tamperResult.message}
+                  </p>
                 </div>
-              )}
-              {requestDetails?.institutionId && (
-                <div>
-                  <span className="meta-label">Issuing Authority</span>
-                  <strong>{requestDetails.institutionId}</strong>
-                </div>
-              )}
-              {requestDetails?.candidateName && (
-                <div>
-                  <span className="meta-label">Candidate</span>
-                  <strong>{requestDetails.candidateName}</strong>
-                </div>
-              )}
-              <div>
-                <span className="meta-label">Real-Time Poller</span>
-                <span style={{ color: "#059669", fontWeight: 600 }}>
-                  {polling ? "● Live polling for Institute signature..." : "Paused"}
-                </span>
               </div>
             </div>
-
-            <div style={{ marginTop: "1rem", display: "flex", gap: "0.75rem" }}>
-              <Button type="button" variant="secondary" onClick={() => checkStatus(certId)}>
-                🔄 Refresh Status Now
-              </Button>
-            </div>
-          </div>
-        </div>
+          )}
+        </form>
       )}
-
-      {/* State: Verified & Approved by Institute */}
-      {verificationStatus === "approved" && approvedDetails && (
-        <div className="verification-state card card-pad verified" style={{ borderLeft: "5px solid #10b981" }}>
-          <div className="verification-state-icon" style={{ background: "#d1fae5", color: "#047857" }}>✓</div>
-          <div className="verification-state-copy" style={{ width: "100%" }}>
-            <div className="verification-state-title">
-              <div>
-                <span className="eyebrow" style={{ color: "#059669" }}>On-Chain Verification Complete</span>
-                <h2 style={{ color: "#065f46" }}>Verified & Authorized by Issuing Institute</h2>
-              </div>
-              <span className="badge badge-success">Authentic & Approved</span>
-            </div>
-
-            <p style={{ color: "#065f46" }}>
-              {statusMessage || "The issuing institution has reviewed and cryptographically authorized access to this certificate on the blockchain."}
-            </p>
-
-            {/* Candidate Details */}
-            {approvedDetails.certificate && (
-              <>
-                <h3 style={{ marginTop: "1.25rem", marginBottom: "0.5rem" }}>Academic Credential Details</h3>
-                <div className="public-result-meta">
-                  <div>
-                    <span className="meta-label">Candidate Name</span>
-                    <strong>{approvedDetails.certificate.candidateName}</strong>
-                  </div>
-                  <div>
-                    <span className="meta-label">Roll Number</span>
-                    <strong>{approvedDetails.certificate.rollNumber}</strong>
-                  </div>
-                  <div>
-                    <span className="meta-label">Course / Degree</span>
-                    <strong>{approvedDetails.certificate.course}</strong>
-                  </div>
-                  <div>
-                    <span className="meta-label">Grade / CGPA</span>
-                    <strong>{approvedDetails.certificate.grade}</strong>
-                  </div>
-                  <div>
-                    <span className="meta-label">Document Type</span>
-                    <strong>{approvedDetails.certificate.documentType}</strong>
-                  </div>
-                  <div>
-                    <span className="meta-label">Issue Date</span>
-                    <strong>{new Date(approvedDetails.certificate.issueDate).toLocaleDateString()}</strong>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Cryptographic Proofs */}
-            <h3 style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>Cryptographic & Blockchain Proofs</h3>
-            <div className="public-result-meta">
-              <div>
-                <span className="meta-label">🏛️ Institute Public Key (Issuer)</span>
-                <strong style={{ fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all" }}>
-                  {approvedDetails.issuerWallet}
-                </strong>
-              </div>
-              {approvedDetails.studentWallet && (
-                <div>
-                  <span className="meta-label">🎓 Student Public Key (Recipient)</span>
-                  <strong style={{ fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all" }}>
-                    {approvedDetails.studentWallet}
-                  </strong>
-                </div>
-              )}
-              {approvedDetails.ipfsCid && (
-                <div>
-                  <span className="meta-label">📦 Decentralized IPFS CID</span>
-                  <strong style={{ fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all" }}>
-                    {approvedDetails.ipfsCid}
-                  </strong>
-                </div>
-              )}
-              {approvedDetails.txHash && (
-                <div>
-                  <span className="meta-label">⛓️ On-Chain Authorization Hash</span>
-                  <strong style={{ fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all" }}>
-                    {approvedDetails.txHash}
-                  </strong>
-                </div>
-              )}
-            </div>
-
-            {/* View Official Document */}
-            <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
-              <a
-                href={`/api/verify/${encodeURIComponent(certId)}/document`}
-                target="_blank"
-                rel="noreferrer"
-                className="button button-primary"
-              >
-                📄 View Official Verified Document (PDF)
-              </a>
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => {
-                  setVerificationStatus("idle");
-                  setCertId("");
-                }}
-              >
-                Verify Another Certificate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* State: Not Found */}
-      {verificationStatus === "not_found" && (
-        <div className="verification-state card card-pad not-found">
-          <div className="verification-state-icon">?</div>
-          <div>
-            <span className="eyebrow">Record Not Found</span>
-            <h2>Certificate Not Found</h2>
-            <p>{statusMessage}</p>
-            <button className="text-action" onClick={() => setVerificationStatus("idle")}>Try another ID</button>
-          </div>
-        </div>
-      )}
-
-      {/* State: Error */}
-      {verificationStatus === "error" && (
-        <Alert>{statusMessage}</Alert>
-      )}
-
-      {/* Direct PDF Hash Results */}
-      {pdfResult && (
-        <div className={`verification-state card card-pad ${pdfState}`} style={{ marginTop: "2rem" }}>
-          <div className="verification-state-icon">{pdfState === "verified" ? "✓" : "×"}</div>
-          <div className="verification-state-copy">
-            <div className="verification-state-title">
-              <h2>{pdfState === "verified" ? "PDF Hash Integrity Confirmed" : "Hash Mismatch / Invalid"}</h2>
-              <span className={`badge ${pdfState === "verified" ? "badge-success" : "badge-neutral"}`}>
-                {pdfState === "verified" ? "Intact" : "Altered"}
-              </span>
-            </div>
-            <p>{pdfResult.message}</p>
-          </div>
-        </div>
-      )}
-      {pdfError && <Alert style={{ marginTop: "1rem" }}>{pdfError}</Alert>}
     </div>
   );
 }

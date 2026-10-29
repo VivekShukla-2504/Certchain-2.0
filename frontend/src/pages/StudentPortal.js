@@ -22,30 +22,32 @@ export default function StudentPortal() {
     setLoading(true);
     setSearched(true);
     try {
-      if (cleanQuery.startsWith("0x")) {
-        // Search by Student Wallet Address
-        const res = await api.get(`/certificates/student/${encodeURIComponent(cleanQuery)}`);
-        setCertificates(res.data.certificates || []);
-      } else {
-        // Search by Certificate ID
-        const res = await api.get(`/verify/status/${encodeURIComponent(cleanQuery.toUpperCase())}`);
-        if (res.data.certificate || res.data.candidateName) {
+      // Search by Roll Number, Email, Wallet, or Cert ID (DigiLocker Pattern)
+      const res = await api.get(`/certificates/student/${encodeURIComponent(cleanQuery)}`);
+      if (res.data.certificates && res.data.certificates.length > 0) {
+        setCertificates(res.data.certificates);
+      } else if (cleanQuery.toUpperCase().startsWith("CERT-")) {
+        // Fallback: search by Certificate ID via verify status
+        const verifyRes = await api.get(`/verify/status/${encodeURIComponent(cleanQuery.toUpperCase())}`);
+        if (verifyRes.data.certificate || verifyRes.data.candidateName) {
           setCertificates([
             {
               certId: cleanQuery.toUpperCase(),
-              candidateName: res.data.certificate?.candidateName || res.data.candidateName || "Student",
-              course: res.data.certificate?.course || "Academic Credential",
-              grade: res.data.certificate?.grade || "-",
-              issueDate: res.data.issuedAt || new Date().toISOString(),
-              documentType: res.data.certificate?.documentType || "Degree",
-              institutionId: res.data.institutionId,
-              studentWallet: res.data.studentWallet || "",
-              revoked: res.data.revoked || false
+              candidateName: verifyRes.data.certificate?.candidateName || verifyRes.data.candidateName || "Student",
+              course: verifyRes.data.certificate?.course || "Academic Credential",
+              grade: verifyRes.data.certificate?.grade || "-",
+              issueDate: verifyRes.data.issuedAt || new Date().toISOString(),
+              documentType: verifyRes.data.certificate?.documentType || "Degree",
+              institutionId: verifyRes.data.institutionId,
+              studentWallet: verifyRes.data.studentWallet || "",
+              revoked: verifyRes.data.revoked || false
             }
           ]);
         } else {
           setCertificates([]);
         }
+      } else {
+        setCertificates([]);
       }
     } catch (err) {
       setError(err.response?.data?.message || "No certificate records found matching your credentials.");
@@ -92,14 +94,14 @@ export default function StudentPortal() {
       <div className="card card-pad" style={{ marginBottom: "2rem" }}>
         <form onSubmit={handleSearch}>
           <label style={{ display: "block", fontWeight: 600, marginBottom: "0.5rem" }}>
-            Enter your Student Wallet Address (0x...) or Certificate ID:
+            Enter your Roll Number (e.g. 2022CS01), Student Wallet, or Certificate ID:
           </label>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1rem" }}>
             <input
               type="text"
               className="input"
               style={{ flex: 1, minWidth: 280 }}
-              placeholder="e.g. 0xStudentWallet... or CERT-7A3B..."
+              placeholder="e.g. Roll No (2022CS01) / Wallet (0x...) / Cert ID"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />

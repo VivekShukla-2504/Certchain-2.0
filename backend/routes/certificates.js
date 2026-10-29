@@ -445,14 +445,24 @@ router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), asyn
 
 
 
-// GET /api/certificates/student/:studentWallet - Query certificates by student wallet (Public Key)
-router.get("/student/:studentWallet", async (req, res) => {
+// GET /api/certificates/student/:identifier - Query certificates by student wallet OR Roll Number OR Email (DigiLocker Pattern)
+router.get("/student/:identifier", async (req, res) => {
   try {
-    const { studentWallet } = req.params;
-    const certificates = await Certificate.find({
-      studentWallet: { $regex: new RegExp(`^${studentWallet.trim()}$`, "i") },
-      status: "confirmed"
-    }).sort({ createdAt: -1 }).lean();
+    const { identifier } = req.params;
+    const cleanId = identifier.trim();
+
+    let filter = { status: "confirmed" };
+    if (cleanId.startsWith("0x")) {
+      filter.studentWallet = { $regex: new RegExp(`^${cleanId}$`, "i") };
+    } else {
+      filter.$or = [
+        { rollNumber: { $regex: new RegExp(`^${cleanId}$`, "i") } },
+        { studentEmail: { $regex: new RegExp(`^${cleanId}$`, "i") } },
+        { studentWallet: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ];
+    }
+
+    const certificates = await Certificate.find(filter).sort({ createdAt: -1 }).lean();
     res.json({ certificates });
   } catch (error) {
     res.status(500).json({ message: "Could not fetch student certificates" });

@@ -38,8 +38,7 @@ function escapeRegex(value) {
 }
 
 function responseForCertificate(certificate) {
-  const frontendUrl = process.env.FRONTEND_URL;
-  if (!frontendUrl) throw new Error("FRONTEND_URL is required to generate certificate verification URLs");
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
   const verifyUrl = `${frontendUrl.replace(/\/$/, "")}/verify/${certificate.certId}`;
   return QRCode.toDataURL(verifyUrl).then((qrDataUrl) => ({
     message: certificate.status === "confirmed" ? "Certificate issued" : "Certificate issuance is being reconciled",
@@ -65,8 +64,7 @@ router.post("/prepare", requireAuth, requireRole("admin", "issuer"), async (req,
       documentType
     };
     const certId = generateCertId();
-    const frontendUrl = process.env.FRONTEND_URL;
-    if (!frontendUrl) return res.status(500).json({ message: "Certificate verification URL is not configured" });
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
     const verifyUrl = `${frontendUrl.replace(/\/$/, "")}/verify/${certId}`;
     const institution = await Institution.findOne({ institutionId: req.institution.institutionId }).select("name").lean();
     if (!institution) return res.status(404).json({ message: "Institution not found" });

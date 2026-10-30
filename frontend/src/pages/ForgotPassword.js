@@ -75,7 +75,7 @@ export default function ForgotPassword() {
   }
 
   const stepCopy = {
-    email: ["Forgot your password?", "Enter your institution email and we will send a reset code if the account exists."],
+    email: ["Forgot your password?", "Enter your registered institution email to receive a secure 6-digit verification code."],
     otp: ["Enter your reset code", "We sent a 6-digit code to your institution email. This OTP is valid for 10 minutes."],
     password: ["Choose a new password", "Your new password must be at least 8 characters."],
     done: ["Password reset complete", "Your password has been updated successfully."]

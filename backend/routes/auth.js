@@ -303,16 +303,127 @@ router.post("/wallet-login", async (req, res) => {
   }
 });
 
-// POST /api/auth/forgot-password
-router.post("/forgot-password", async (req, res) => {
-  const genericResponse = { message: "If an account exists, a password reset code has been sent." };
+// POST /api/auth/send-login-otp - Send OTP for login only if account exists in database
+router.post("/send-login-otp", async (req, res) => {
   try {
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: "Enter a valid email address" });
+
+    // Strict record existence check
+    const institution = await Institution.findOne({ email });
+    if (!institution) {
+      return res.status(404).json({
+        message: "No registered account found with this email. Please check your email or register first."
+      });
+    }
+
+    if (institution.approvalStatus === "pending") {
+      return res.status(403).json({ message: "Institution registration is awaiting approval" });
+    }
+    if (institution.approvalStatus === "suspended") {
+      return res.status(403).json({ message: "Institution access has been suspended" });
+    }
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    institution.loginOtpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    institution.loginOtpExpiresAt = new Date(Date.now() + Number(process.env.PASSWORD_RESET_OTP_TTL_MINUTES || 10) * 60 * 1000);
+    institution.loginOtpAttempts = 0;
+    await institution.save();
+
+    console.log(`[CertChain Security] Login OTP generated for ${institution.email}: [ ${otp} ]`);
+
+    try {
+      await sendEmailMessage({
+        to: institution.email,
+        subject: "CertChain Login Verification Code",
+        text: `Your CertChain login verification code is ${otp}. It expires in 10 minutes. If you did not request this login code, please secure your account.`
+      });
+      console.log(`[CertChain Auth] Login OTP email dispatched for ${institution.email}`);
+    } catch (mailErr) {
+      console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
+      return res.status(500).json({
+        message: `Unable to deliver email to ${institution.email}: ${mailErr.message}. If running on cloud free tier, raw SMTP ports may be blocked.`
+      });
+    }
+
+    return res.json({ message: `Login OTP sent successfully to ${institution.email}.` });
+  } catch (err) {
+    console.error("[CertChain Auth] Error in send-login-otp:", err.message);
+    return res.status(500).json({ message: "Failed to send login OTP: " + err.message });
+  }
+});
+
+// POST /api/auth/verify-login-otp - Verify OTP and complete login
+router.post("/verify-login-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (!normalizedEmail || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ message: "Valid email and 6-digit OTP code are required" });
+    }
+
+    const institution = await Institution.findOne({ email: normalizedEmail });
+    if (!institution) {
+      return res.status(404).json({ message: "No registered account found with this email" });
+    }
+
+    const expired = !institution.loginOtpExpiresAt || institution.loginOtpExpiresAt.getTime() < Date.now();
+    if (expired || (institution.loginOtpAttempts || 0) >= 5) {
+      return res.status(400).json({ message: "Login OTP is invalid or has expired. Please request a new code." });
+    }
+
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    if (otpHash !== institution.loginOtpHash) {
+      institution.loginOtpAttempts = (institution.loginOtpAttempts || 0) + 1;
+      await institution.save();
+      return res.status(400).json({ message: "Invalid OTP code. Please try again." });
+    }
+
+    institution.loginOtpHash = undefined;
+    institution.loginOtpExpiresAt = undefined;
+    institution.loginOtpAttempts = 0;
+    await institution.save();
+
+    const token = jwt.sign(
+      {
+        id: institution._id,
+        institutionId: institution.institutionId,
+        walletAddress: institution.walletAddress,
+        role: institution.role || "admin"
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    );
+
+    return res.json({
+      token,
+      institution: {
+        id: institution._id,
+        institutionId: institution.institutionId,
+        name: institution.name,
+        walletAddress: institution.walletAddress,
+        role: institution.role || "admin"
+      }
+    });
+  } catch (err) {
+    console.error("[CertChain Auth] Error in verify-login-otp:", err.message);
+    return res.status(500).json({ message: "Login verification failed" });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: "Enter a valid email address" });
+
+    // Strict existence check: Reject immediately if account does not exist in records
     const institution = await Institution.findOne({ email });
     if (!institution) {
       console.warn(`[CertChain Auth] Forgot password requested for unregistered email: ${email}`);
-      return res.json(genericResponse);
+      return res.status(404).json({
+        message: "No registered account found with this email. Please check your email or register first."
+      });
     }
 
     const otp = crypto.randomInt(100000, 1000000).toString();
@@ -332,12 +443,15 @@ router.post("/forgot-password", async (req, res) => {
       console.log(`[CertChain Auth] Password reset OTP email dispatched for ${institution.email}`);
     } catch (mailErr) {
       console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
+      return res.status(500).json({
+        message: `Unable to deliver email to ${institution.email}: ${mailErr.message}. If running on cloud free tier, raw SMTP ports may be blocked.`
+      });
     }
 
-    return res.json(genericResponse);
+    return res.json({ message: `Password reset OTP has been sent to ${institution.email}.` });
   } catch (err) {
     console.error(`[CertChain Auth] Error in forgot-password for ${req.body?.email}:`, err.message);
-    return res.json(genericResponse);
+    return res.status(500).json({ message: "Password reset request failed: " + err.message });
   }
 });
 

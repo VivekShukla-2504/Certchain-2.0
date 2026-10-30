@@ -15,7 +15,10 @@ const institutionSchema = new mongoose.Schema(
     },
     passwordResetOtpHash: { type: String },
     passwordResetExpiresAt: { type: Date },
-    passwordResetAttempts: { type: Number, default: 0 }
+    passwordResetAttempts: { type: Number, default: 0 },
+    loginOtpHash: { type: String },
+    loginOtpExpiresAt: { type: Date },
+    loginOtpAttempts: { type: Number, default: 0 }
   },
   { timestamps: true }
 );

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
 import { Alert, Button, Field } from "../components/UI";
@@ -33,7 +33,12 @@ function TransactionStatus({ state }) {
 
 export default function Issue() {
   const [form, setForm] = useState({ candidateName: "", rollNumber: "", course: "", grade: "", issueDate: "", studentWallet: "", studentEmail: "" });
+  const [registeredStudents, setRegisteredStudents] = useState([]);
   const [documentType, setDocumentType] = useState("Degree");
+
+  useEffect(() => {
+    api.get("/students").then((res) => setRegisteredStudents(res.data.students || [])).catch(() => {});
+  }, []);
   const [documentFile, setDocumentFile] = useState(null);
   const [preparedCertificate, setPreparedCertificate] = useState(null);
   const [preparingPdf, setPreparingPdf] = useState(false);
@@ -128,6 +133,34 @@ export default function Issue() {
 
   return <div className="page issue-page"><div className="page-header"><div><span className="eyebrow">Certificate registry</span><h1>Issue a certificate</h1><p className="lead">Create a tamper-evident credential anchored to the blockchain.</p></div><span className="badge badge-neutral">On-chain issuance</span></div>
     <div className="split-grid"><section className="card card-pad"><div className="form-header"><h3>Recipient details</h3><p className="muted small">Enter the information exactly as it should appear on the certificate.</p></div><form className="form" onSubmit={handleSubmit} noValidate>
+      {registeredStudents.length > 0 && (
+        <Field label="Choose from Registered Students (Autofill)">
+          <select
+            className="select"
+            defaultValue=""
+            onChange={(e) => {
+              const s = registeredStudents.find((item) => (item.id || item._id) === e.target.value);
+              if (s) {
+                setForm((prev) => ({
+                  ...prev,
+                  candidateName: s.fullName,
+                  rollNumber: s.enrollmentNumber,
+                  course: s.course || prev.course,
+                  studentWallet: s.walletAddress,
+                  studentEmail: s.email
+                }));
+              }
+            }}
+          >
+            <option value="" disabled>-- Select a registered student to autofill --</option>
+            {registeredStudents.map((s) => (
+              <option key={s.id || s._id} value={s.id || s._id}>
+                {s.fullName} - {s.enrollmentNumber} ({s.course})
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Candidate name"><input className={`input ${fieldErrors.candidateName ? "input-error" : ""}`} placeholder="Full legal name" value={form.candidateName} onChange={(e) => update("candidateName", e.target.value)} aria-invalid={!!fieldErrors.candidateName} aria-describedby={fieldErrors.candidateName ? "candidateName-error" : undefined} />{fieldErrors.candidateName && <span id="candidateName-error" className="field-error">{fieldErrors.candidateName}</span>}</Field>
       <Field label="Roll number"><input className={`input ${fieldErrors.rollNumber ? "input-error" : ""}`} placeholder="Student or employee ID" value={form.rollNumber} onChange={(e) => update("rollNumber", e.target.value)} aria-invalid={!!fieldErrors.rollNumber} />{fieldErrors.rollNumber && <span className="field-error">{fieldErrors.rollNumber}</span>}</Field>
       <Field label="Course or qualification"><input className={`input ${fieldErrors.course ? "input-error" : ""}`} placeholder="e.g. B.Tech Computer Science" value={form.course} onChange={(e) => update("course", e.target.value)} aria-invalid={!!fieldErrors.course} />{fieldErrors.course && <span className="field-error">{fieldErrors.course}</span>}</Field>

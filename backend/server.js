@@ -10,6 +10,7 @@ const authRoutes = require("./routes/auth");
 const certificateRoutes = require("./routes/certificates");
 const verifyRoutes = require("./routes/verify");
 const institutionRoutes = require("./routes/institution");
+const studentRoutes = require("./routes/students");
 const auditRoutes = require("./routes/audit");
 const platformRoutes = require("./routes/platform");
 const { authLimiter, verifyLimiter, platformAdminLimiter } = require("./middleware/security");
@@ -60,6 +61,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/verify", verifyLimiter, verifyRoutes);
 app.use("/api/institution", institutionRoutes);
+app.use("/api/students", studentRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/platform", platformAdminLimiter, platformRoutes);
 

@@ -47,6 +47,34 @@ const verificationRequestSchema = new mongoose.Schema({
     default: "pending",
     index: true
   },
+  uploadedDocumentHash: {
+    type: String,
+    default: ""
+  },
+  blockchainHash: {
+    type: String,
+    default: ""
+  },
+  tamperStatus: {
+    type: String,
+    enum: ["NOT_TAMPERED", "TAMPERED", "NOT_CHECKED", "REVOKED", "NOT_FOUND"],
+    default: "NOT_CHECKED"
+  },
+  submittedPdfPath: {
+    type: String,
+    default: ""
+  },
+  rejectionReason: {
+    type: String,
+    default: ""
+  },
+  blockchainStatus: {
+    type: String,
+    default: "ACTIVE"
+  },
+  blockNumber: {
+    type: Number
+  },
   requestedAt: {
     type: Date,
     default: Date.now

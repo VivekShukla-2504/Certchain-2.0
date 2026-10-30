@@ -12,7 +12,7 @@ services:
       - key: PORT
         value: 10000
       - key: CONTRACT_ADDRESS
-        value: 0xCa70e753D2DFcd32532Fb3f236B66c9494F01330
+        value: 0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90
       - key: CHAIN_ID
         value: 11155111
       - key: FRONTEND_URL

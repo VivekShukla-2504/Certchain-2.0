@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api";
 import { Alert, Brand, Button, Field, PasswordField } from "../components/UI";
-import { connectMetaMaskWallet } from "../utils/web3";
+import { authenticateStakeholderWallet } from "../utils/web3";
 
-const CONTRACT_ADDRESS = "0xCa70e753D2DFcd32532Fb3f236B66c9494F01330";
+const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -35,13 +35,12 @@ export default function Login() {
     setError("");
     setWalletLoading(true);
     try {
-      const address = await connectMetaMaskWallet();
-      const res = await api.post("/auth/wallet-login", { walletAddress: address });
-      localStorage.setItem("certchain_token", res.data.token);
-      localStorage.setItem("certchain_institution", JSON.stringify(res.data.institution));
-      navigate(res.data.institution.role === "reviewer" ? "/certificates" : "/dashboard");
+      const auth = await authenticateStakeholderWallet("institute");
+      localStorage.setItem("certchain_token", auth.token);
+      localStorage.setItem("certchain_institution", JSON.stringify(auth.institution));
+      navigate(auth.institution?.role === "reviewer" ? "/certificates" : "/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "MetaMask login failed. Make sure your account is registered.");
+      setError(err.response?.data?.message || err.message || "MetaMask Web3 authentication failed.");
     } finally {
       setWalletLoading(false);
     }

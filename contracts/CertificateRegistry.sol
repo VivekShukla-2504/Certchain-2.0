@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title CertificateRegistry
-/// @notice 100% Immutable On-Chain Academic Certificate Registry on Ethereum EVM.
-/// Anchors SHA-256 Document Hashes, Issuer (Institute), Recipient (Student), and Decentralized IPFS CIDs.
-contract CertificateRegistry {
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+/**
+ * @title CertificateRegistry
+ * @notice Enterprise Ethereum Sepolia Academic Credential Registry.
+ * Anchors SHA-256 / Keccak-256 Document Hashes, Authorized Institutes, Student Wallets, and Decentralized IPFS CIDs.
+ * Uses OpenZeppelin AccessControl for role-based administrative and issuance security.
+ */
+contract CertificateRegistry is AccessControl {
+    bytes32 public constant INSTITUTE_ROLE = keccak256("INSTITUTE_ROLE");
+
     uint256 private constant MAX_CERT_ID_LENGTH = 100;
     uint256 private constant MAX_INSTITUTION_ID_LENGTH = 100;
 
@@ -18,23 +25,37 @@ contract CertificateRegistry {
         bool revoked;          // Revocation status flag
     }
 
-    // certId (e.g. "CERT-7F3A2C") => record
+    // certId => record
     mapping(string => CertRecord) private records;
 
     // student wallet => list of certIds
     mapping(address => string[]) private studentCertificates;
 
-    // institution wallet => allowed to issue
-    mapping(address => bool) public authorizedIssuers;
+    // institution wallet => institute ID mapping
+    mapping(address => string) public instituteIdentifiers;
 
     // verification approvals: certId => bool
     mapping(string => bool) public verificationApprovals;
     // certId => employer wallet => approved
     mapping(string => mapping(address => bool)) public employerApprovals;
 
-    address public owner;
-    address public pendingOwner;
+    // Backward-compatibility mapping view
+    mapping(address => bool) public authorizedIssuers;
 
+    // Core Specification Events
+    event InstituteRegistered(address indexed institute, string instituteId);
+    event InstituteRevoked(address indexed institute);
+    event CredentialIssued(
+        string indexed certId,
+        bytes32 certHash,
+        address indexed student,
+        address indexed institute,
+        uint256 issuedAt
+    );
+    event CredentialRevoked(string indexed certId, address indexed revoker);
+    event VerificationApproved(string indexed certId, address indexed approver, address indexed employer);
+
+    // Backward-compatible Event Aliases
     event CertificateIssued(
         string indexed certId,
         bytes32 certHash,
@@ -43,62 +64,85 @@ contract CertificateRegistry {
         uint256 issuedAt
     );
     event CertificateRevoked(string indexed certId, address indexed revokedBy);
-    event VerificationApproved(string indexed certId, address indexed approver, address indexed employer);
     event IssuerAuthorized(address indexed issuer, string institutionId);
     event IssuerRevoked(address indexed issuer);
-    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not contract owner");
-        _;
-    }
-
-    modifier onlyAuthorized() {
-        require(authorizedIssuers[msg.sender], "Not an authorized issuer");
-        _;
-    }
 
     constructor() {
-        owner = msg.sender;
-        authorizedIssuers[msg.sender] = true; // deployer is authorized by default
-        emit OwnershipTransferred(address(0), msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(INSTITUTE_ROLE, msg.sender);
+        authorizedIssuers[msg.sender] = true;
+        instituteIdentifiers[msg.sender] = "DEPLOYER_PRIMARY";
+        emit InstituteRegistered(msg.sender, "DEPLOYER_PRIMARY");
     }
 
-    /// @notice Starts a two-step ownership transfer. The recipient must accept it.
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "New owner cannot be zero address");
-        pendingOwner = newOwner;
-        emit OwnershipTransferStarted(owner, newOwner);
+    /* =========================================================================
+     * 1. INSTITUTE MANAGEMENT (OpenZeppelin AccessControl)
+     * ========================================================================= */
+
+    /**
+     * @notice Register and authorize an institute to issue credentials on Sepolia.
+     */
+    function registerInstitute(address institute, string calldata instituteId)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(institute != address(0), "Institute cannot be zero address");
+        require(bytes(instituteId).length > 0, "Institute ID cannot be empty");
+        require(bytes(instituteId).length <= MAX_INSTITUTION_ID_LENGTH, "Institute ID too long");
+
+        _grantRole(INSTITUTE_ROLE, institute);
+        authorizedIssuers[institute] = true;
+        instituteIdentifiers[institute] = instituteId;
+
+        emit InstituteRegistered(institute, instituteId);
+        emit IssuerAuthorized(institute, instituteId);
     }
 
-    /// @notice Completes a pending ownership transfer by the nominated owner.
-    function acceptOwnership() external {
-        require(msg.sender == pendingOwner, "Not pending owner");
-        address previousOwner = owner;
-        owner = msg.sender;
-        pendingOwner = address(0);
-        emit OwnershipTransferred(previousOwner, msg.sender);
+    /**
+     * @notice Revoke an institute's credential issuance authority.
+     */
+    function revokeInstitute(address institute)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(institute != address(0), "Institute cannot be zero address");
+
+        _revokeRole(INSTITUTE_ROLE, institute);
+        authorizedIssuers[institute] = false;
+
+        emit InstituteRevoked(institute);
+        emit IssuerRevoked(institute);
     }
 
-    /// @notice Owner grants an institution wallet permission to issue certificates
-    function authorizeIssuer(address issuer, string calldata institutionId) external onlyOwner {
-        require(issuer != address(0), "Issuer cannot be zero address");
-        require(bytes(institutionId).length > 0, "Institution ID cannot be empty");
-        require(bytes(institutionId).length <= MAX_INSTITUTION_ID_LENGTH, "Institution ID too long");
+    /**
+     * @notice Check whether a given address is an authorized institution.
+     */
+    function isAuthorizedInstitute(address institute) external view returns (bool) {
+        return hasRole(INSTITUTE_ROLE, institute);
+    }
+
+    // Backward-compatible alias
+    function authorizeIssuer(address issuer, string calldata institutionId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(INSTITUTE_ROLE, issuer);
         authorizedIssuers[issuer] = true;
+        instituteIdentifiers[issuer] = institutionId;
+        emit InstituteRegistered(issuer, institutionId);
         emit IssuerAuthorized(issuer, institutionId);
     }
 
-    /// @notice Revoke an institution's issuing rights
-    function revokeIssuer(address issuer) external onlyOwner {
-        require(issuer != address(0), "Issuer cannot be zero address");
+    // Backward-compatible alias
+    function revokeIssuer(address issuer) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(INSTITUTE_ROLE, issuer);
         authorizedIssuers[issuer] = false;
+        emit InstituteRevoked(issuer);
         emit IssuerRevoked(issuer);
     }
 
-    /// @dev Internal issuance logic shared across public entrypoints
-    function _issue(
+    /* =========================================================================
+     * 2. CREDENTIAL MANAGEMENT (Issuance, Revocation, Verification)
+     * ========================================================================= */
+
+    function _issueInternal(
         string memory certId,
         bytes32 certHash,
         string memory institutionId,
@@ -125,50 +169,117 @@ contract CertificateRegistry {
 
         studentCertificates[recipient].push(certId);
 
+        emit CredentialIssued(certId, certHash, recipient, msg.sender, block.timestamp);
         emit CertificateIssued(certId, certHash, msg.sender, recipient, block.timestamp);
     }
 
-    /// @notice Master Issue function: Binds Institute, Student, Document Hash, and On-Chain IPFS CID
+    /**
+     * @notice Primary spec entrypoint: issueCredential.
+     */
+    function issueCredential(
+        string calldata certId,
+        bytes32 certHash,
+        address student,
+        string calldata ipfsCid
+    ) external onlyRole(INSTITUTE_ROLE) {
+        string memory instId = instituteIdentifiers[msg.sender];
+        if (bytes(instId).length == 0) {
+            instId = "INSTITUTE";
+        }
+        _issueInternal(certId, certHash, instId, student, ipfsCid);
+    }
+
+    /**
+     * @notice Binds Institute, Student, Document Hash, and Decentralized IPFS CID.
+     */
     function issueCertificateWithIpfs(
         string calldata certId,
         bytes32 certHash,
         string calldata institutionId,
         address recipient,
         string calldata ipfsCid
-    ) external onlyAuthorized {
-        _issue(certId, certHash, institutionId, recipient, ipfsCid);
+    ) external onlyRole(INSTITUTE_ROLE) {
+        _issueInternal(certId, certHash, institutionId, recipient, ipfsCid);
     }
 
-    /// @notice Issue function with recipient student wallet
     function issueCertificateTo(
         string calldata certId,
         bytes32 certHash,
         string calldata institutionId,
         address recipient
-    ) external onlyAuthorized {
-        _issue(certId, certHash, institutionId, recipient, "");
+    ) external onlyRole(INSTITUTE_ROLE) {
+        _issueInternal(certId, certHash, institutionId, recipient, "");
     }
 
-    /// @notice Backward-compatible issueCertificate defaults recipient to msg.sender
     function issueCertificate(
         string calldata certId,
         bytes32 certHash,
         string calldata institutionId
-    ) external onlyAuthorized {
-        _issue(certId, certHash, institutionId, msg.sender, "");
+    ) external onlyRole(INSTITUTE_ROLE) {
+        _issueInternal(certId, certHash, institutionId, msg.sender, "");
     }
 
-    /// @notice Revoke a previously issued certificate (e.g. issued in error)
-    function revokeCertificate(string calldata certId) external {
+    /**
+     * @notice Revoke a credential. Only the issuing institute or an admin can revoke.
+     */
+    function revokeCredential(string calldata certId) external {
         CertRecord storage rec = records[certId];
         require(rec.issuedAt != 0, "Certificate does not exist");
-        require(rec.issuer == msg.sender || msg.sender == owner, "Not authorized to revoke");
+        require(
+            rec.issuer == msg.sender || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Not authorized to revoke"
+        );
         require(!rec.revoked, "Certificate already revoked");
+
         rec.revoked = true;
+        emit CredentialRevoked(certId, msg.sender);
         emit CertificateRevoked(certId, msg.sender);
     }
 
-    /// @notice 100% On-Chain Verification: Verifies hash, issuer, recipient, and decentralized IPFS CID
+    function revokeCertificate(string calldata certId) external {
+        CertRecord storage rec = records[certId];
+        require(rec.issuedAt != 0, "Certificate does not exist");
+        require(
+            rec.issuer == msg.sender || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Not authorized to revoke"
+        );
+        require(!rec.revoked, "Certificate already revoked");
+
+        rec.revoked = true;
+        emit CredentialRevoked(certId, msg.sender);
+        emit CertificateRevoked(certId, msg.sender);
+    }
+
+    /**
+     * @notice Verifies whether a credential hash matches on-chain record and is active.
+     */
+    function verifyCredential(string calldata certId, bytes32 certHash)
+        external
+        view
+        returns (
+            bool isValid,
+            address issuer,
+            string memory institutionId,
+            uint256 issuedAt,
+            bool revoked,
+            address recipient,
+            string memory ipfsCid
+        )
+    {
+        CertRecord memory rec = records[certId];
+        bool exists = rec.issuedAt != 0;
+        bool matches = exists && rec.certHash == certHash && !rec.revoked;
+        return (
+            matches,
+            rec.issuer,
+            rec.institutionId,
+            rec.issuedAt,
+            rec.revoked,
+            rec.recipient,
+            rec.ipfsCid
+        );
+    }
+
     function verifyCertificate(string calldata certId, bytes32 certHash)
         external
         view
@@ -196,18 +307,23 @@ contract CertificateRegistry {
         );
     }
 
-    /// @notice Fetch all certificate IDs issued to a particular student address
-    function getStudentCertificates(address student) external view returns (string[] memory) {
-        return studentCertificates[student];
+    function getCredential(string calldata certId) external view returns (CertRecord memory) {
+        return records[certId];
     }
 
-    /// @notice Fetch complete immutable on-chain record
     function getRecord(string calldata certId) external view returns (CertRecord memory) {
         return records[certId];
     }
 
-    /// @notice Institute verifies and authorizes an employer verification request
-    function approveVerification(string calldata certId, address employer) external onlyAuthorized {
+    function getStudentCertificates(address student) external view returns (string[] memory) {
+        return studentCertificates[student];
+    }
+
+    /* =========================================================================
+     * 3. EMPLOYER VERIFICATION AUTHORIZATION
+     * ========================================================================= */
+
+    function approveVerification(string calldata certId, address employer) external onlyRole(INSTITUTE_ROLE) {
         require(records[certId].issuedAt != 0, "Certificate does not exist");
         verificationApprovals[certId] = true;
         if (employer != address(0)) {
@@ -216,7 +332,6 @@ contract CertificateRegistry {
         emit VerificationApproved(certId, msg.sender, employer);
     }
 
-    /// @notice Check if verification for this certificate has been authorized by the issuing institute
     function isVerificationApproved(string calldata certId, address employer) external view returns (bool) {
         if (verificationApprovals[certId]) return true;
         if (employer != address(0) && employerApprovals[certId][employer]) return true;

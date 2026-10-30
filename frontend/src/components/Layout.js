@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { Brand, Button, ThemeToggle } from "./UI";
 import { getConnectedWallet, connectMetaMaskWallet } from "../utils/web3";
 
-const CONTRACT_ADDRESS = "0xCa70e753D2DFcd32532Fb3f236B66c9494F01330";
+const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
 
 function getInstitution() {
   try {

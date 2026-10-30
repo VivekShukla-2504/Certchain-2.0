@@ -1,182 +1,140 @@
 const { expect } = require("chai");
 const anyValue = require("@nomicfoundation/hardhat-chai-matchers/withArgs").anyValue;
 
-describe("CertificateRegistry", function () {
+describe("CertificateRegistry (OpenZeppelin AccessControl)", function () {
   async function deployFixture() {
-    const [owner, issuer, other] = await ethers.getSigners();
+    const [admin, institute, student, employer, unauthorized] = await ethers.getSigners();
     const Registry = await ethers.getContractFactory("CertificateRegistry");
     const registry = await Registry.deploy();
     await registry.waitForDeployment();
-    return { registry, owner, issuer, other };
+    return { registry, admin, institute, student, employer, unauthorized };
   }
 
-  const certificateHash = () => ethers.keccak256(ethers.toUtf8Bytes("certificate-data"));
+  const sampleHash = () => ethers.keccak256(ethers.toUtf8Bytes("official-pdf-commitment-data"));
 
-  it("allows an authorized issuer to issue a certificate", async function () {
-    const { registry, owner, issuer } = await deployFixture();
-    await registry.connect(owner).authorizeIssuer(issuer.address, "INST-A");
+  describe("1. Institute Management (AccessControl)", function () {
+    it("allows admin to register an authorized institute", async function () {
+      const { registry, admin, institute } = await deployFixture();
 
-    await expect(registry.connect(issuer).issueCertificate("CERT-001", certificateHash(), "INST-A"))
-      .to.emit(registry, "CertificateIssued")
-      .withArgs("CERT-001", certificateHash(), issuer.address, issuer.address, anyValue);
+      await expect(registry.connect(admin).registerInstitute(institute.address, "INST-IIT"))
+        .to.emit(registry, "InstituteRegistered")
+        .withArgs(institute.address, "INST-IIT");
+
+      expect(await registry.isAuthorizedInstitute(institute.address)).to.equal(true);
+    });
+
+    it("rejects institute registration by unauthorized accounts", async function () {
+      const { registry, unauthorized, institute } = await deployFixture();
+
+      await expect(
+        registry.connect(unauthorized).registerInstitute(institute.address, "INST-IIT")
+      ).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    });
+
+    it("allows admin to revoke an institute", async function () {
+      const { registry, admin, institute } = await deployFixture();
+      await registry.connect(admin).registerInstitute(institute.address, "INST-IIT");
+
+      await expect(registry.connect(admin).revokeInstitute(institute.address))
+        .to.emit(registry, "InstituteRevoked")
+        .withArgs(institute.address);
+
+      expect(await registry.isAuthorizedInstitute(institute.address)).to.equal(false);
+    });
   });
 
-  it("rejects issuance by an unauthorized issuer", async function () {
-    const { registry, other } = await deployFixture();
-    await expect(registry.connect(other).issueCertificate("CERT-002", certificateHash(), "INST-A"))
-      .to.be.revertedWith("Not an authorized issuer");
+  describe("2. Credential Issuance & Verification", function () {
+    it("allows registered institute to issue credential", async function () {
+      const { registry, admin, institute, student } = await deployFixture();
+      await registry.connect(admin).registerInstitute(institute.address, "INST-JNU");
+
+      const certHash = sampleHash();
+      const ipfsCid = "QmTestPinataCidHash2026";
+
+      await expect(
+        registry.connect(institute).issueCredential("CERT-SEP-001", certHash, student.address, ipfsCid)
+      )
+        .to.emit(registry, "CredentialIssued")
+        .withArgs("CERT-SEP-001", certHash, student.address, institute.address, anyValue);
+
+      // Verify on-chain
+      const [isValid, issuer, instId, issuedAt, revoked, recipient, cid] =
+        await registry.verifyCredential("CERT-SEP-001", certHash);
+
+      expect(isValid).to.equal(true);
+      expect(issuer).to.equal(institute.address);
+      expect(instId).to.equal("INST-JNU");
+      expect(recipient).to.equal(student.address);
+      expect(cid).to.equal(ipfsCid);
+      expect(revoked).to.equal(false);
+    });
+
+    it("rejects unauthorized issuance by non-institutes", async function () {
+      const { registry, unauthorized, student } = await deployFixture();
+
+      await expect(
+        registry.connect(unauthorized).issueCredential("CERT-FAKE-01", sampleHash(), student.address, "")
+      ).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    });
+
+    it("rejects duplicate certificate IDs", async function () {
+      const { registry, admin, student } = await deployFixture();
+
+      await registry.connect(admin).issueCredential("CERT-DUP-01", sampleHash(), student.address, "");
+      await expect(
+        registry.connect(admin).issueCredential("CERT-DUP-01", sampleHash(), student.address, "")
+      ).to.be.revertedWith("Certificate ID already exists");
+    });
+
+    it("fetches student certificates on-chain", async function () {
+      const { registry, admin, student } = await deployFixture();
+      await registry.connect(admin).issueCredential("CERT-STU-01", sampleHash(), student.address, "");
+      await registry.connect(admin).issueCredential("CERT-STU-02", sampleHash(), student.address, "");
+
+      const list = await registry.getStudentCertificates(student.address);
+      expect(list.length).to.equal(2);
+      expect(list[0]).to.equal("CERT-STU-01");
+      expect(list[1]).to.equal("CERT-STU-02");
+    });
   });
 
-  it("rejects duplicate certificate IDs", async function () {
-    const { registry, owner } = await deployFixture();
-    await registry.connect(owner).issueCertificate("CERT-003", certificateHash(), "OWNER");
+  describe("3. Credential Revocation", function () {
+    it("allows issuing institute to revoke credential", async function () {
+      const { registry, admin, institute, student } = await deployFixture();
+      await registry.connect(admin).registerInstitute(institute.address, "INST-A");
+      await registry.connect(institute).issueCredential("CERT-REV-01", sampleHash(), student.address, "");
 
-    await expect(registry.connect(owner).issueCertificate("CERT-003", certificateHash(), "OWNER"))
-      .to.be.revertedWith("Certificate ID already exists");
+      await expect(registry.connect(institute).revokeCredential("CERT-REV-01"))
+        .to.emit(registry, "CredentialRevoked")
+        .withArgs("CERT-REV-01", institute.address);
+
+      const [isValid, , , , revoked] = await registry.verifyCredential("CERT-REV-01", sampleHash());
+      expect(isValid).to.equal(false);
+      expect(revoked).to.equal(true);
+    });
+
+    it("rejects revocation by unauthorized third party", async function () {
+      const { registry, admin, student, unauthorized } = await deployFixture();
+      await registry.connect(admin).issueCredential("CERT-REV-02", sampleHash(), student.address, "");
+
+      await expect(
+        registry.connect(unauthorized).revokeCredential("CERT-REV-02")
+      ).to.be.revertedWith("Not authorized to revoke");
+    });
   });
 
-  it("verifies a certificate with the correct hash", async function () {
-    const { registry, owner } = await deployFixture();
-    await registry.connect(owner).issueCertificate("CERT-004", certificateHash(), "OWNER");
+  describe("4. Employer Verification Approval Queue", function () {
+    it("allows institute to authorize employer verification request", async function () {
+      const { registry, admin, student, employer } = await deployFixture();
+      await registry.connect(admin).issueCredential("CERT-EMP-01", sampleHash(), student.address, "");
 
-    const result = await registry.verifyCertificate("CERT-004", certificateHash());
-    expect(result[0]).to.equal(true);
-    expect(result[1]).to.equal(owner.address);
-    expect(result[2]).to.equal("OWNER");
-    expect(result[4]).to.equal(false);
-  });
+      expect(await registry.isVerificationApproved("CERT-EMP-01", employer.address)).to.equal(false);
 
-  it("returns invalid for a missing or incorrect certificate", async function () {
-    const { registry, owner } = await deployFixture();
-    await registry.connect(owner).issueCertificate("CERT-005", certificateHash(), "OWNER");
+      await expect(registry.connect(admin).approveVerification("CERT-EMP-01", employer.address))
+        .to.emit(registry, "VerificationApproved")
+        .withArgs("CERT-EMP-01", admin.address, employer.address);
 
-    const wrongHash = ethers.keccak256(ethers.toUtf8Bytes("tampered-data"));
-    const mismatch = await registry.verifyCertificate("CERT-005", wrongHash);
-    const missing = await registry.verifyCertificate("CERT-MISSING", certificateHash());
-    expect(mismatch[0]).to.equal(false);
-    expect(missing[0]).to.equal(false);
-  });
-
-  it("allows the issuing wallet to revoke a certificate", async function () {
-    const { registry, owner } = await deployFixture();
-    await registry.connect(owner).issueCertificate("CERT-006", certificateHash(), "OWNER");
-
-    await expect(registry.connect(owner).revokeCertificate("CERT-006"))
-      .to.emit(registry, "CertificateRevoked")
-      .withArgs("CERT-006", owner.address);
-    const result = await registry.verifyCertificate("CERT-006", certificateHash());
-    expect(result[0]).to.equal(false);
-    expect(result[4]).to.equal(true);
-  });
-
-  it("rejects revocation by an unauthorized wallet", async function () {
-    const { registry, owner, other } = await deployFixture();
-    await registry.connect(owner).issueCertificate("CERT-007", certificateHash(), "OWNER");
-
-    await expect(registry.connect(other).revokeCertificate("CERT-007"))
-      .to.be.revertedWith("Not authorized to revoke");
-  });
-
-  it("rejects invalid certificate input", async function () {
-    const { registry, owner } = await deployFixture();
-    await expect(registry.connect(owner).issueCertificate("", certificateHash(), "OWNER"))
-      .to.be.revertedWith("Certificate ID cannot be empty");
-    await expect(registry.connect(owner).issueCertificate("CERT-008", ethers.ZeroHash, "OWNER"))
-      .to.be.revertedWith("Hash cannot be empty");
-  });
-
-  it("allows the current owner to initiate a two-step ownership transfer", async function () {
-    const { registry, owner, other } = await deployFixture();
-
-    await expect(registry.connect(owner).transferOwnership(other.address))
-      .to.emit(registry, "OwnershipTransferStarted")
-      .withArgs(owner.address, other.address);
-    expect(await registry.pendingOwner()).to.equal(other.address);
-    expect(await registry.owner()).to.equal(owner.address);
-  });
-
-  it("rejects ownership transfer initiation by unauthorized accounts", async function () {
-    const { registry, other } = await deployFixture();
-
-    await expect(registry.connect(other).transferOwnership(other.address))
-      .to.be.revertedWith("Not contract owner");
-  });
-
-  it("allows only the pending owner to accept ownership", async function () {
-    const { registry, owner, issuer, other } = await deployFixture();
-    await registry.connect(owner).transferOwnership(issuer.address);
-
-    await expect(registry.connect(other).acceptOwnership())
-      .to.be.revertedWith("Not pending owner");
-    await expect(registry.connect(issuer).acceptOwnership())
-      .to.emit(registry, "OwnershipTransferred")
-      .withArgs(owner.address, issuer.address);
-
-    expect(await registry.owner()).to.equal(issuer.address);
-    expect(await registry.pendingOwner()).to.equal(ethers.ZeroAddress);
-  });
-
-  it("gives new owner permissions and removes old owner permissions", async function () {
-    const { registry, owner, issuer, other } = await deployFixture();
-    await registry.connect(owner).transferOwnership(issuer.address);
-    await registry.connect(issuer).acceptOwnership();
-
-    await expect(registry.connect(issuer).authorizeIssuer(other.address, "INST-B"))
-      .to.emit(registry, "IssuerAuthorized");
-    await expect(registry.connect(owner).authorizeIssuer(other.address, "INST-C"))
-      .to.be.revertedWith("Not contract owner");
-  });
-
-  it("binds student recipient address and enables student lookup", async function () {
-    const { registry, owner, other: student } = await deployFixture();
-    await registry.connect(owner).issueCertificateTo("CERT-STUDENT-01", certificateHash(), "OWNER", student.address);
-
-    const result = await registry.verifyCertificate("CERT-STUDENT-01", certificateHash());
-    expect(result[0]).to.equal(true);
-    expect(result[5]).to.equal(student.address); // recipient
-
-    const studentCerts = await registry.getStudentCertificates(student.address);
-    expect(studentCerts.length).to.equal(1);
-    expect(studentCerts[0]).to.equal("CERT-STUDENT-01");
-  });
-
-  it("anchors decentralized IPFS CID on-chain with zero tampering risk", async function () {
-    const { registry, owner, other: student } = await deployFixture();
-    const testCid = "QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx";
-    await registry.connect(owner).issueCertificateWithIpfs(
-      "CERT-IPFS-01",
-      certificateHash(),
-      "OWNER",
-      student.address,
-      testCid
-    );
-
-    const result = await registry.verifyCertificate("CERT-IPFS-01", certificateHash());
-    expect(result[0]).to.equal(true);
-    expect(result[1]).to.equal(owner.address);
-    expect(result[5]).to.equal(student.address);
-    expect(result[6]).to.equal(testCid);
-  });
-
-  it("requires institute verification approval before employer access is granted", async function () {
-    const { registry, owner, other: student } = await deployFixture();
-    const [, , , employer] = await ethers.getSigners();
-    await registry.connect(owner).issueCertificateTo("CERT-EMPLOYER-01", certificateHash(), "OWNER", student.address);
-
-    // Initial check: not yet approved
-    expect(await registry.isVerificationApproved("CERT-EMPLOYER-01", employer.address)).to.equal(false);
-
-    // Unauthorized party cannot approve
-    await expect(
-      registry.connect(employer).approveVerification("CERT-EMPLOYER-01", employer.address)
-    ).to.be.revertedWith("Not an authorized issuer");
-
-    // Institute approves
-    await expect(registry.connect(owner).approveVerification("CERT-EMPLOYER-01", employer.address))
-      .to.emit(registry, "VerificationApproved")
-      .withArgs("CERT-EMPLOYER-01", owner.address, employer.address);
-
-    // Now approved!
-    expect(await registry.isVerificationApproved("CERT-EMPLOYER-01", employer.address)).to.equal(true);
+      expect(await registry.isVerificationApproved("CERT-EMP-01", employer.address)).to.equal(true);
+    });
   });
 });

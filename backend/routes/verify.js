@@ -17,6 +17,12 @@ const { DEFAULT_PUBLIC_CERTIFICATE_FIELDS } = require("../utils/disclosure");
 const { readString, validateCertificateInput } = require("../utils/validation");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { downloadFromIPFS, decryptFromIPFS } = require("../utils/ipfs");
+const {
+  sendEmployerRequestSubmittedEmail,
+  sendInstituteNewRequestEmail,
+  sendEmployerApprovalDecisionEmail,
+  sendStudentVerificationAlertEmail
+} = require("../utils/mailer");
 
 const router = express.Router();
 const CERTIFICATE_FIELDS = ["candidateName", "rollNumber", "documentType", "course", "grade", "issueDate"];
@@ -40,8 +46,8 @@ function discloseCertificate(fields, publicFields) {
     .map((field) => [field, fields[field]]));
 }
 
-// POST /api/verify/request - Employer submits certId for Institute verification
-router.post("/request", async (req, res) => {
+// POST /api/verify/request - Employer submits certId and optional PDF for Institute verification
+router.post("/request", receivePdf, async (req, res) => {
   try {
     const { certId, employerName, employerWallet, employerEmail } = req.body;
     const certIdError = readString(certId, "Certificate ID", { max: 80, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -49,39 +55,66 @@ router.post("/request", async (req, res) => {
 
     const normalizedId = certId.trim().toUpperCase();
     const stored = await Certificate.findOne({ certId: normalizedId });
-    if (!stored) {
-      return res.status(404).json({ message: "No certificate found with ID " + normalizedId });
+    
+    // Also read on-chain Sepolia record
+    let onChainRecord = null;
+    try {
+      onChainRecord = await getRecordOnChain(normalizedId);
+    } catch (e) {
+      // Offline fallback
     }
 
-    // Check if on-chain approval already exists
+    if (!stored && (!onChainRecord || onChainRecord.issuedAt === 0)) {
+      return res.status(404).json({
+        status: "NOT_FOUND",
+        message: "No certificate found matching ID " + normalizedId + " on Ethereum Sepolia."
+      });
+    }
+
+    const isRevoked = Boolean(stored?.revoked || onChainRecord?.revoked);
+
+    // Compute PDF hash if provided by employer
+    let uploadedDocumentHash = "";
+    let tamperStatus = "NOT_CHECKED";
+    let submittedPdfPath = "";
+
+    if (req.file && isPdfBuffer(req.file.buffer)) {
+      uploadedDocumentHash = hashFileBuffer(req.file.buffer);
+
+      // Save submitted PDF so institute can view and compare
+      const subDir = path.join(__dirname, "..", "uploads", "verification_requests");
+      await fs.mkdir(subDir, { recursive: true });
+      submittedPdfPath = path.join(subDir, `${normalizedId}_${Date.now()}.pdf`);
+      await fs.writeFile(submittedPdfPath, req.file.buffer);
+
+      const targetHash = stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "";
+      const cleanTarget = targetHash.replace(/^0x/i, "").toLowerCase();
+      const cleanUploaded = uploadedDocumentHash.replace(/^0x/i, "").toLowerCase();
+
+      if (isRevoked) {
+        tamperStatus = "REVOKED";
+      } else if (cleanTarget && cleanUploaded === cleanTarget) {
+        tamperStatus = "NOT_TAMPERED";
+      } else {
+        tamperStatus = "TAMPERED";
+      }
+    } else if (isRevoked) {
+      tamperStatus = "REVOKED";
+    }
+
+    // Check if already approved on-chain
     const onChainApproved = await isVerificationApprovedOnChain(normalizedId, employerWallet);
     const existingApproved = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
 
-    if (onChainApproved || existingApproved) {
+    if ((onChainApproved || existingApproved) && !isRevoked && tamperStatus !== "TAMPERED") {
       return res.json({
         approved: true,
         status: "approved",
         certId: normalizedId,
-        institutionId: stored.institutionId,
-        message: "Certificate is verified and approved by the issuing institution."
-      });
-    }
-
-    // Check if there is already a pending request for this certId
-    const pendingRequest = await VerificationRequest.findOne({
-      certId: normalizedId,
-      status: "pending"
-    });
-
-    if (pendingRequest) {
-      return res.json({
-        approved: false,
-        status: "pending",
-        requestId: pendingRequest.requestId,
-        certId: normalizedId,
-        institutionId: stored.institutionId,
-        candidateName: stored.candidateName,
-        message: "Verification request is pending approval from the issuing institution."
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        tamperStatus,
+        uploadedDocumentHash,
+        message: "Certificate is verified and approved by the issuing institution on-chain."
       });
     }
 
@@ -90,27 +123,71 @@ router.post("/request", async (req, res) => {
     const newRequest = new VerificationRequest({
       requestId,
       certId: normalizedId,
-      institutionId: stored.institutionId,
-      candidateName: stored.candidateName,
-      course: stored.course,
-      studentWallet: stored.studentWallet || "",
+      institutionId: stored?.institutionId || onChainRecord?.institutionId || "INSTITUTE",
+      candidateName: stored?.candidateName || "Student",
+      course: stored?.course || "Academic Credential",
+      studentWallet: stored?.studentWallet || onChainRecord?.recipient || "",
       employerName: (employerName && employerName.trim()) || "Prospective Employer",
       employerEmail: (employerEmail && employerEmail.trim()) || "",
       employerWallet: (employerWallet && employerWallet.trim()) || "",
+      uploadedDocumentHash,
+      blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",
+      tamperStatus,
+      submittedPdfPath,
+      blockchainStatus: isRevoked ? "REVOKED" : "ACTIVE",
       status: "pending",
       requestedAt: new Date()
     });
 
     await newRequest.save();
 
+    // Notify Employer via email
+    if (newRequest.employerEmail) {
+      const inst = await Institution.findOne({ institutionId: newRequest.institutionId }).select("name").lean();
+      sendEmployerRequestSubmittedEmail({
+        employerEmail: newRequest.employerEmail,
+        employerName: newRequest.employerName,
+        certId: newRequest.certId,
+        candidateName: newRequest.candidateName,
+        course: newRequest.course,
+        institutionName: inst?.name || newRequest.institutionId,
+        requestId: newRequest.requestId,
+        tamperStatus
+      }).catch((e) => console.error("Email error:", e.message));
+    }
+
+    // Notify Issuing Institute via email
+    const institutionRecord = await Institution.findOne({ institutionId: newRequest.institutionId }).lean();
+    if (institutionRecord?.email) {
+      sendInstituteNewRequestEmail({
+        institutionEmail: institutionRecord.email,
+        institutionName: institutionRecord.name || newRequest.institutionId,
+        certId: newRequest.certId,
+        candidateName: newRequest.candidateName,
+        course: newRequest.course,
+        employerName: newRequest.employerName,
+        employerWallet: newRequest.employerWallet,
+        requestId: newRequest.requestId,
+        tamperStatus
+      }).catch((e) => console.error("Email error:", e.message));
+    }
+
     res.json({
       approved: false,
       status: "pending",
       requestId: newRequest.requestId,
       certId: normalizedId,
-      institutionId: stored.institutionId,
-      candidateName: stored.candidateName,
-      message: "Verification request submitted to the issuing institution. Waiting for institute approval."
+      institutionId: newRequest.institutionId,
+      candidateName: newRequest.candidateName,
+      course: newRequest.course,
+      tamperStatus,
+      uploadedDocumentHash,
+      blockchainHash: newRequest.blockchainHash,
+      message: tamperStatus === "TAMPERED"
+        ? "⚠️ Warning: The uploaded certificate hash does not match the on-chain blockchain record! Document tampering detected."
+        : tamperStatus === "NOT_TAMPERED"
+        ? "✓ Document SHA-256 hash matches the on-chain blockchain record. Verification request dispatched to issuing institute."
+        : "Verification request submitted to the issuing institution. Waiting for institute review."
     });
   } catch (err) {
     res.status(500).json({ message: "Failed to submit verification request: " + err.message });
@@ -122,8 +199,35 @@ router.get("/status/:certId", async (req, res) => {
   try {
     const normalizedId = req.params.certId.trim().toUpperCase();
     const stored = await Certificate.findOne({ certId: normalizedId });
-    if (!stored) {
-      return res.status(404).json({ message: "Certificate not found" });
+    
+    // Check Sepolia on-chain record as well
+    let onChainRecord = {};
+    try {
+      onChainRecord = await getRecordOnChain(normalizedId);
+    } catch (e) {}
+
+    if (!stored && (!onChainRecord || onChainRecord.issuedAt === 0)) {
+      return res.status(404).json({
+        approved: false,
+        status: "not_found",
+        message: "No certificate record found matching " + normalizedId + " on Ethereum Sepolia."
+      });
+    }
+
+    const isRevoked = Boolean(stored?.revoked || onChainRecord?.revoked);
+    if (isRevoked) {
+      return res.json({
+        approved: false,
+        status: "revoked",
+        verified: false,
+        revoked: true,
+        certId: normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        candidateName: stored?.candidateName || "Student",
+        course: stored?.course || "Academic Credential",
+        revocationTxHash: stored?.revocationTxHash || "",
+        message: "This certificate has been revoked on the Ethereum Sepolia Blockchain and is not valid."
+      });
     }
 
     const { employerWallet } = req.query;
@@ -131,37 +235,44 @@ router.get("/status/:certId", async (req, res) => {
     const approvedRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
 
     if (onChainApproved || approvedRequest) {
-      // Fetch on-chain record for cryptographic proof
-      let onChainRecord = {};
-      try {
-        onChainRecord = await getRecordOnChain(normalizedId);
-      } catch (e) {
-        // Fallback to stored values if local test node
-      }
-
       return res.json({
         approved: true,
         status: "approved",
-        verified: !stored.revoked,
-        revoked: stored.revoked,
-        certId: stored.certId,
-        institutionId: stored.institutionId,
-        issuerWallet: onChainRecord.issuer || stored.institutionId,
-        studentWallet: onChainRecord.recipient || stored.studentWallet,
-        ipfsCid: onChainRecord.ipfsCid || stored.ipfsCid,
-        issuedAt: onChainRecord.issuedAt ? new Date(onChainRecord.issuedAt * 1000).toISOString() : stored.createdAt,
+        verified: true,
+        revoked: false,
+        certId: stored?.certId || normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        issuerWallet: onChainRecord.issuer || stored?.issuerWallet || stored?.institutionId,
+        studentWallet: onChainRecord.recipient || stored?.studentWallet,
+        ipfsCid: onChainRecord.ipfsCid || stored?.ipfsCid,
+        issuedAt: onChainRecord.issuedAt ? new Date(onChainRecord.issuedAt * 1000).toISOString() : stored?.createdAt,
         approvedAt: approvedRequest?.approvedAt || new Date().toISOString(),
-        approvedBy: approvedRequest?.approvedBy || stored.institutionId,
-        txHash: approvedRequest?.txHash || "",
+        approvedBy: approvedRequest?.approvedBy || stored?.institutionId,
+        txHash: approvedRequest?.txHash || stored?.txHash || "",
+        tamperStatus: approvedRequest?.tamperStatus || "NOT_TAMPERED",
+        blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",
         certificate: {
-          candidateName: stored.candidateName,
-          rollNumber: stored.rollNumber,
-          documentType: stored.documentType || "Degree",
-          course: stored.course,
-          grade: stored.grade,
-          issueDate: stored.issueDate
+          candidateName: stored?.candidateName,
+          rollNumber: stored?.rollNumber,
+          documentType: stored?.documentType || "Degree",
+          course: stored?.course,
+          grade: stored?.grade,
+          issueDate: stored?.issueDate
         },
         message: "Certificate verified and authorized by issuing institution on-chain."
+      });
+    }
+
+    const rejectedRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "rejected" });
+    if (rejectedRequest) {
+      return res.json({
+        approved: false,
+        status: "rejected",
+        certId: normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        candidateName: stored?.candidateName || "Student",
+        rejectionReason: rejectedRequest.rejectionReason,
+        message: "Verification request was reviewed and rejected by the issuing institution: " + (rejectedRequest.rejectionReason || "Reason unspecified.")
       });
     }
 
@@ -170,14 +281,17 @@ router.get("/status/:certId", async (req, res) => {
     res.json({
       approved: false,
       status: pendingRequest ? "pending" : "unrequested",
-      certId: stored.certId,
-      institutionId: stored.institutionId,
-      candidateName: stored.candidateName,
+      certId: stored?.certId || normalizedId,
+      institutionId: stored?.institutionId || onChainRecord?.institutionId,
+      candidateName: stored?.candidateName || "Student",
       requestId: pendingRequest?.requestId || null,
-      message: "Verification request requires approval from the issuing institution."
+      tamperStatus: pendingRequest?.tamperStatus || "NOT_CHECKED",
+      message: pendingRequest
+        ? "Verification request is currently pending review by the issuing institution."
+        : "Verification request has not yet been submitted for this certificate."
     });
   } catch (err) {
-    res.status(500).json({ message: "Failed to query verification status" });
+    res.status(500).json({ message: "Failed to query verification status: " + err.message });
   }
 });
 
@@ -256,18 +370,66 @@ router.post("/approve/:requestId", requireAuth, requireRole("admin", "issuer"), 
       return res.status(404).json({ message: "Verification request not found" });
     }
 
+    const cert = await Certificate.findOne({
+      certId: request.certId,
+      institutionId: req.institution.institutionId
+    });
+
+    if (!cert) {
+      return res.status(404).json({ message: "Certificate not found or does not belong to your institution." });
+    }
+
+    if (cert.revoked) {
+      return res.status(400).json({ message: "Cannot approve: This credential has been revoked." });
+    }
+
+    if (request.tamperStatus === "TAMPERED") {
+      return res.status(400).json({ message: "Cannot approve: Uploaded certificate hash differs from on-chain record. Document tampering detected." });
+    }
+
+    // Call real smart contract function on Sepolia
     let txHash = "";
     try {
       txHash = await approveVerificationOnChain(request.certId, request.employerWallet);
     } catch (chainErr) {
-      console.warn("On-chain approval transaction logged or mock-handled:", chainErr.message);
+      console.warn("On-chain approval transaction logged:", chainErr.message);
     }
 
     request.status = "approved";
     request.approvedAt = new Date();
     request.approvedBy = req.institution.institutionId;
-    request.txHash = txHash || ("0x" + crypto.randomBytes(32).toString("hex"));
+    request.txHash = txHash || "";
     await request.save();
+
+    // Notify Employer via email
+    if (request.employerEmail) {
+      const inst = await Institution.findOne({ institutionId: req.institution.institutionId }).select("name").lean();
+      sendEmployerApprovalDecisionEmail({
+        employerEmail: request.employerEmail,
+        employerName: request.employerName,
+        certId: request.certId,
+        candidateName: request.candidateName,
+        course: request.course,
+        institutionName: inst?.name || req.institution.institutionId,
+        status: "approved",
+        txHash: request.txHash,
+        reason: req.body.reason || "Approved by issuing institution"
+      }).catch((e) => console.error("Email error:", e.message));
+    }
+
+    // Notify Student via email
+    if (cert.studentEmail) {
+      const inst = await Institution.findOne({ institutionId: req.institution.institutionId }).select("name").lean();
+      sendStudentVerificationAlertEmail({
+        studentEmail: cert.studentEmail,
+        candidateName: cert.candidateName,
+        certId: cert.certId,
+        course: cert.course,
+        employerName: request.employerName,
+        institutionName: inst?.name || req.institution.institutionId,
+        verifiedAt: request.approvedAt
+      }).catch((e) => console.error("Email error:", e.message));
+    }
 
     res.json({
       message: "Verification request approved and authorized on-chain.",
@@ -291,12 +453,74 @@ router.post("/reject/:requestId", requireAuth, requireRole("admin", "issuer"), a
       return res.status(404).json({ message: "Verification request not found" });
     }
 
+    const reason = typeof req.body.reason === "string" && req.body.reason.trim()
+      ? req.body.reason.trim()
+      : "Rejected by issuing institution";
+
     request.status = "rejected";
-    request.rejectionReason = req.body.reason || "Rejected by issuing institution";
+    request.rejectionReason = reason;
     await request.save();
+
+    // Notify Employer via email
+    if (request.employerEmail) {
+      const inst = await Institution.findOne({ institutionId: req.institution.institutionId }).select("name").lean();
+      sendEmployerApprovalDecisionEmail({
+        employerEmail: request.employerEmail,
+        employerName: request.employerName,
+        certId: request.certId,
+        candidateName: request.candidateName,
+        course: request.course,
+        institutionName: inst?.name || req.institution.institutionId,
+        status: "rejected",
+        txHash: "",
+        reason
+      }).catch((e) => console.error("Email error:", e.message));
+    }
 
     res.json({ message: "Verification request rejected", request });
   } catch (err) {
+    res.status(500).json({ message: "Rejection failed: " + err.message });
+  }
+});
+
+// GET /api/verify/employer/requests - Employer retrieves their history of verification requests
+router.get("/employer/requests", async (req, res) => {
+  try {
+    const { employerWallet, employerEmail } = req.query;
+    let filter = {};
+    if (employerWallet) {
+      filter.$or = [
+        { employerWallet: { $regex: new RegExp(`^${employerWallet.trim()}$`, "i") } }
+      ];
+    } else if (employerEmail) {
+      filter.employerEmail = { $regex: new RegExp(`^${employerEmail.trim()}$`, "i") };
+    }
+
+    const requests = await VerificationRequest.find(filter).sort({ requestedAt: -1 }).lean();
+    res.json({ requests });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch employer requests" });
+  }
+});
+
+// GET /api/verify/requests/:requestId/submitted-doc - Institute views submitted PDF for side-by-side comparison
+router.get("/requests/:requestId/submitted-doc", requireAuth, async (req, res) => {
+  try {
+    const request = await VerificationRequest.findOne({
+      requestId: req.params.requestId,
+      institutionId: req.institution.institutionId
+    });
+    if (!request || !request.submittedPdfPath) {
+      return res.status(404).json({ message: "No submitted PDF available for this request" });
+    }
+    const pdf = await fs.readFile(request.submittedPdfPath);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="submitted_${request.certId}.pdf"`);
+    res.send(pdf);
+  } catch (err) {
+    res.status(500).json({ message: "Submitted PDF unavailable" });
+  }
+});
     res.status(500).json({ message: "Rejection failed: " + err.message });
   }
 });

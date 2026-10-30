@@ -53,6 +53,7 @@ export default function App() {
             {/* Stakeholder 2: Employer Verification */}
             <Route path="/verify" element={<VerifyRoute />} />
             <Route path="/verify/:certificateId" element={<PublicCertificateRoute />} />
+            <Route path="/employer" element={<VerifyRoute />} />
 
             {/* Stakeholder 3: Student Credential Vault */}
             <Route path="/student" element={<><PublicHeader /><StudentPortal /></>} />

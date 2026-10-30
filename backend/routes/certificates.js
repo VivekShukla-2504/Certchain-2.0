@@ -6,10 +6,17 @@ const path = require("path");
 const QRCode = require("qrcode");
 const Certificate = require("../models/Certificate");
 const Institution = require("../models/Institution");
+const Student = require("../models/Student");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { hashCertificateData, hashFileBuffer } = require("../utils/hash");
-const { issueOnChain, getRecordOnChain, getPlatformSignerAddress, revokeOnChain } = require("../utils/blockchain");
-const { sendCertificateIssuedEmail } = require("../utils/mailer");
+const {
+  issueOnChain,
+  getRecordOnChain,
+  getPlatformSignerAddress,
+  revokeOnChain,
+  verifyClientTxOnChain
+} = require("../utils/blockchain");
+const { sendCertificateIssuedEmail, sendCertificateRevokedEmail } = require("../utils/mailer");
 const { receivePdf, isPdfBuffer } = require("../utils/pdfUpload");
 const { recordAuditEvent } = require("../utils/audit");
 const { generateCertificatePdf } = require("../utils/certificatePdf");
@@ -89,11 +96,23 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     if (!req.file || !isPdfBuffer(req.file.buffer)) {
       return res.status(400).json({ message: "Upload a valid PDF certificate" });
     }
-    const { candidateName, rollNumber, course, grade, issueDate, studentWallet, studentEmail } = req.body;
+    const { candidateName, rollNumber, course, grade, issueDate, studentWallet, studentEmail, studentId, department, academicSession } = req.body;
+    const institutionId = req.institution.institutionId;
+
+    // Link with registered student if available
+    let studentRecord = null;
+    if (studentId) {
+      studentRecord = await Student.findOne({ _id: studentId, institutionId }).lean();
+    } else if (rollNumber) {
+      studentRecord = await Student.findOne({ enrollmentNumber: rollNumber.trim(), institutionId }).lean();
+    }
+
     const resolvedStudentWallet = (typeof studentWallet === "string" && studentWallet.trim().startsWith("0x"))
       ? studentWallet.trim()
-      : ethers.Wallet.createRandom().address;
-    const resolvedStudentEmail = typeof studentEmail === "string" ? studentEmail.trim().toLowerCase() : "";
+      : studentRecord?.walletAddress || ethers.Wallet.createRandom().address;
+    const resolvedStudentEmail = typeof studentEmail === "string" && studentEmail.trim()
+      ? studentEmail.trim().toLowerCase()
+      : studentRecord?.email || "";
     const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Other"];
     const documentType = typeof req.body.documentType === "string" ? req.body.documentType.trim() : "Other";
     if (!allowedDocumentTypes.includes(documentType)) {
@@ -159,6 +178,8 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
           issuerWallet: getPlatformSignerAddress(),
           studentWallet: resolvedStudentWallet,
           studentEmail: resolvedStudentEmail,
+          department: department || studentRecord?.department || "",
+          academicSession: academicSession || studentRecord?.academicSession || "",
           certHash,
           documentHash,
           generatedPdf: Boolean(preparedCertId),
@@ -203,14 +224,26 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     if (certificate.studentEmail) {
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       const verifyUrl = `${frontendUrl.replace(/\/$/, "")}/verify/${certificate.certId}`;
+      const studentDashboardUrl = `${frontendUrl.replace(/\/$/, "")}/student`;
+      const institutionRecord = await Institution.findOne({ institutionId }).select("name").lean();
       sendCertificateIssuedEmail({
         studentEmail: certificate.studentEmail,
         candidateName: certificate.candidateName,
+        username: studentRecord?.username || "",
         certId: certificate.certId,
+        certificateTitle: certificate.course,
         course: certificate.course,
+        department: certificate.department || studentRecord?.department || "",
         grade: certificate.grade,
+        issueDate: certificate.issueDate,
+        studentWallet: certificate.studentWallet,
+        issuerWallet: certificate.issuerWallet,
+        txHash: certificate.txHash,
+        blockNumber: certificate.blockNumber,
+        institutionName: institutionRecord?.name || institutionId,
         institutionId,
         verifyUrl,
+        studentDashboardUrl,
         pdfBuffer: req.file.buffer
       }).catch((emailErr) => console.error("Email dispatch error:", emailErr.message));
     }
@@ -239,9 +272,20 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     certificate = claimed;
 
     // Write the hash to the blockchain - this is the step that makes it tamper-evident
-    const txHash = await issueOnChain(certificate.certId, certHash, institutionId, certificate.studentWallet, certificate.ipfsCid);
+    let txHash;
+    let blockNumber;
+    if (req.body.clientTxHash && typeof req.body.clientTxHash === "string" && req.body.clientTxHash.startsWith("0x")) {
+      const verified = await verifyClientTxOnChain(req.body.clientTxHash);
+      txHash = verified.txHash;
+      blockNumber = verified.blockNumber;
+    } else {
+      const onChainResult = await issueOnChain(certificate.certId, certHash, institutionId, certificate.studentWallet, certificate.ipfsCid);
+      txHash = typeof onChainResult === "object" ? onChainResult.txHash : onChainResult;
+      blockNumber = typeof onChainResult === "object" ? onChainResult.blockNumber : null;
+    }
     chainConfirmed = true;
     certificate.txHash = txHash;
+    certificate.blockNumber = blockNumber;
     certificate.status = "confirmed";
     await certificate.save();
 
@@ -249,14 +293,26 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     if (certificate.studentEmail) {
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       const verifyUrl = `${frontendUrl.replace(/\/$/, "")}/verify/${certificate.certId}`;
+      const studentDashboardUrl = `${frontendUrl.replace(/\/$/, "")}/student`;
+      const institutionRecord = await Institution.findOne({ institutionId }).select("name").lean();
       sendCertificateIssuedEmail({
         studentEmail: certificate.studentEmail,
         candidateName: certificate.candidateName,
+        username: studentRecord?.username || "",
         certId: certificate.certId,
+        certificateTitle: certificate.course,
         course: certificate.course,
+        department: certificate.department || studentRecord?.department || "",
         grade: certificate.grade,
+        issueDate: certificate.issueDate,
+        studentWallet: certificate.studentWallet,
+        issuerWallet: certificate.issuerWallet,
+        txHash: certificate.txHash,
+        blockNumber: certificate.blockNumber,
+        institutionName: institutionRecord?.name || institutionId,
         institutionId,
         verifyUrl,
+        studentDashboardUrl,
         pdfBuffer: req.file.buffer
       }).catch((emailErr) => console.error("Email dispatch error:", emailErr.message));
     }
@@ -426,9 +482,32 @@ router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), asyn
       institutionId: req.institution.institutionId
     });
     if (!cert) return res.status(404).json({ message: "Certificate not found" });
-    await revokeOnChain(cert.certId);
+    if (cert.revoked) return res.status(400).json({ message: "Certificate is already revoked" });
+
+    const reason = typeof req.body.reason === "string" && req.body.reason.trim()
+      ? req.body.reason.trim()
+      : "Revoked by issuing authority";
+    const clientTxHash = typeof req.body.clientTxHash === "string" ? req.body.clientTxHash.trim() : "";
+
+    let revTxHash;
+    let revBlockNumber;
+    if (clientTxHash && clientTxHash.startsWith("0x")) {
+      const verified = await verifyClientTxOnChain(clientTxHash);
+      revTxHash = verified.txHash;
+      revBlockNumber = verified.blockNumber;
+    } else {
+      const revResult = await revokeOnChain(cert.certId);
+      revTxHash = typeof revResult === "object" ? revResult.txHash : revResult;
+      revBlockNumber = typeof revResult === "object" ? revResult.blockNumber : null;
+    }
+
     cert.revoked = true;
+    cert.status = "REVOKED";
+    cert.revocationTxHash = revTxHash;
+    cert.revokedAt = new Date();
+    cert.revocationReason = reason;
     await cert.save();
+
     await recordAuditEvent({
       action: "revoked",
       institutionId: req.institution.institutionId,
@@ -436,7 +515,29 @@ router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), asyn
       certId: cert.certId,
       documentType: cert.documentType
     });
-    res.json({ message: "Certificate revoked" });
+
+    if (cert.studentEmail) {
+      const institution = await Institution.findOne({ institutionId: req.institution.institutionId }).select("name").lean();
+      sendCertificateRevokedEmail({
+        studentEmail: cert.studentEmail,
+        candidateName: cert.candidateName,
+        certId: cert.certId,
+        course: cert.course,
+        institutionName: institution?.name || req.institution.institutionId,
+        institutionId: req.institution.institutionId,
+        revocationTxHash: revTxHash,
+        revokedAt: cert.revokedAt,
+        reason
+      }).catch((e) => console.error("Revocation email dispatch error:", e.message));
+    }
+
+    return res.json({
+      message: "Certificate revoked successfully on Ethereum Sepolia",
+      certId: cert.certId,
+      revocationTxHash: revTxHash,
+      blockNumber: revBlockNumber,
+      revokedAt: cert.revokedAt
+    });
   } catch (err) {
     res.status(500).json({ message: "Revocation failed" });
   }
@@ -444,13 +545,44 @@ router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), asyn
 
 
 
+// GET /api/certificates/:certId/download-student - Allows student to download their verified PDF certificate
+router.get("/:certId/download-student", async (req, res) => {
+  try {
+    const certificate = await Certificate.findOne({ certId: req.params.certId });
+    if (!certificate || !certificate.documentHash) {
+      return res.status(404).json({ message: "Certificate PDF not found" });
+    }
+    let pdf;
+    try {
+      pdf = await fs.readFile(certificatePdfPath(certificate.certId));
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      if (!certificate.ipfsCid || !certificate.ipfsIv || !certificate.ipfsAuthTag || !certificate.ipfsEncryptionVersion) {
+        return res.status(404).json({ message: "Certificate PDF not found" });
+      }
+      const encryptedPdf = await downloadFromIPFS(certificate.ipfsCid);
+      pdf = decryptFromIPFS(encryptedPdf, {
+        iv: certificate.ipfsIv,
+        authTag: certificate.ipfsAuthTag,
+        encryptionVersion: certificate.ipfsEncryptionVersion
+      });
+      if (hashFileBuffer(pdf) !== certificate.documentHash) {
+        return res.status(500).json({ message: "Recovered PDF does not match its stored integrity hash" });
+      }
+    }
+    return res.type("application/pdf").attachment(`${certificate.certId}.pdf`).send(pdf);
+  } catch (err) {
+    return res.status(500).json({ message: "Certificate PDF unavailable" });
+  }
+});
+
 // GET /api/certificates/student/:identifier - Query certificates by student wallet OR Roll Number OR Email (DigiLocker Pattern)
 router.get("/student/:identifier", async (req, res) => {
   try {
     const { identifier } = req.params;
     const cleanId = identifier.trim();
 
-    let filter = { status: "confirmed" };
+    let filter = { status: { $ne: "failed" } };
     if (cleanId.startsWith("0x")) {
       filter.studentWallet = { $regex: new RegExp(`^${cleanId}$`, "i") };
     } else {

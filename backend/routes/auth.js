@@ -2,21 +2,11 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 const Institution = require("../models/Institution");
 const { readString } = require("../utils/validation");
+const { getMailTransport } = require("../utils/mailer");
 
 const router = express.Router();
-
-function getMailTransport() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-  });
-}
 
 // POST /api/auth/signup - register a new institution admin
 router.post("/signup", async (req, res) => {
@@ -166,9 +156,15 @@ router.post("/forgot-password", async (req, res) => {
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: "Enter a valid email address" });
     const institution = await Institution.findOne({ email });
-    if (!institution) return res.json(genericResponse);
+    if (!institution) {
+      console.warn(`[CertChain Auth] Forgot password requested for unregistered email: ${email}`);
+      return res.json(genericResponse);
+    }
     const transport = getMailTransport();
-    if (!transport) return res.json(genericResponse);
+    if (!transport) {
+      console.warn(`[CertChain Auth] Mail transport unavailable for forgot password request to: ${email}`);
+      return res.json(genericResponse);
+    }
 
     const otp = crypto.randomInt(100000, 1000000).toString();
     institution.passwordResetOtpHash = crypto.createHash("sha256").update(otp).digest("hex");
@@ -176,14 +172,17 @@ router.post("/forgot-password", async (req, res) => {
     institution.passwordResetAttempts = 0;
     await institution.save();
 
+    console.log(`[CertChain Auth] Sending password reset OTP email to ${institution.email}...`);
     await transport.sendMail({
       from: process.env.MAIL_FROM || process.env.SMTP_USER,
       to: institution.email,
       subject: "CertChain password reset code",
-      text: `Your CertChain password reset code is ${otp}. It expires soon. If you did not request this, ignore this email.`
+      text: `Your CertChain password reset code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
     });
+    console.log(`[CertChain Auth] Password reset OTP email successfully sent to ${institution.email}`);
     return res.json(genericResponse);
   } catch (err) {
+    console.error(`[CertChain Auth] Error in forgot-password for ${req.body?.email}:`, err.message);
     return res.json(genericResponse);
   }
 });

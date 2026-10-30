@@ -1,14 +1,45 @@
 const nodemailer = require("nodemailer");
 
 function getMailTransport() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  const user = (process.env.SMTP_USER || "").trim();
+  const rawPass = (process.env.SMTP_PASS || "").trim();
+  if (!user || !rawPass) {
+    console.warn("[CertChain Mailer] SMTP_USER or SMTP_PASS is missing in environment variables. Email service is running in simulated mode.");
     return null;
   }
+
+  // Remove spaces from Google App Password (e.g. "vydc ubkd dmwq jgea" -> "vydcubkddmwqjgea")
+  const cleanPass = rawPass.replace(/\s+/g, "");
+  const host = (process.env.SMTP_HOST || "").toLowerCase().trim();
+  const isGmail = host === "smtp.gmail.com" || user.toLowerCase().endsWith("@gmail.com") || (!host && user.includes("@"));
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user,
+        pass: cleanPass
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
+    });
+  }
+
+  const port = Number(process.env.SMTP_PORT || 465);
+  const secure = process.env.SMTP_SECURE === "true" || port === 465;
+
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port,
+    secure,
+    auth: {
+      user,
+      pass: cleanPass
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
   });
 }
 
@@ -49,7 +80,8 @@ ${institutionId} Credential Registry (Powered by CertChain)`;
   }
 
   try {
-    await transport.sendMail({
+    console.log(`[CertChain Email Service] Dispatching certificate email to student: ${studentEmail} (Cert ID: ${certId})...`);
+    const info = await transport.sendMail({
       from: process.env.MAIL_FROM || process.env.SMTP_USER,
       to: studentEmail,
       subject,
@@ -62,11 +94,13 @@ ${institutionId} Credential Registry (Powered by CertChain)`;
         }
       ] : []
     });
-    console.log(`[CertChain Email Service] Certificate email sent successfully to ${studentEmail}`);
+    console.log(`[CertChain Email Service] Certificate email sent successfully to ${studentEmail} (MessageId: ${info.messageId})`);
+    return info;
   } catch (err) {
     console.error(`[CertChain Email Service] Failed to send email to ${studentEmail}:`, err.message);
   }
 }
 
 module.exports = { getMailTransport, sendCertificateIssuedEmail };
+
 

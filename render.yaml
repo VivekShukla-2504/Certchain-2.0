@@ -26,14 +26,16 @@ services:
       - key: PRIVATE_KEY
         sync: false
       - key: SMTP_HOST
-        sync: false
+        value: smtp.gmail.com
       - key: SMTP_PORT
-        sync: false
+        value: "465"
       - key: SMTP_SECURE
-        sync: false
+        value: "true"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
         sync: false
       - key: IPFS_ENABLED
         value: "true"

@@ -218,14 +218,12 @@ export function AppSidebar({ mobileOpen, onClose }) {
           <span className="workspace-chevron" aria-hidden="true">⌄</span>
         </div>
         <nav className="side-nav" aria-label="Workspace navigation">
-          <span className="side-nav-label">Workspace</span>
-          <NavItem to="/dashboard" label="Overview" icon="▦" />
-          <NavItem to="/students" label="Students" icon="♙" />
-          <NavItem to="/certificates" label="Certificates" icon="▤" />
-          {role === "admin" && <NavItem to="/settings" label="Privacy settings" icon="⚙" />}
-          <NavItem to="/audit" label="Audit history" icon="≡" />
-          {canIssue && <NavItem to="/issue" label="Issue certificate" icon="＋" />}
-          <NavItem to="/verify" label="Verify certificate" icon="⌕" />
+          <span className="side-nav-label">Institution Workspace</span>
+          <NavItem to="/dashboard" label="Overview & Requests" icon="▦" />
+          {canIssue && <NavItem to="/issue" label="Issue Certificate" icon="＋" />}
+          <NavItem to="/certificates" label="Issued Certificates" icon="▤" />
+          <NavItem to="/keys" label="Sepolia Keys & Identity" icon="⛓️" />
+          <NavItem to="/verify" label="Employer Verify View" icon="💼" />
         </nav>
         <div className="sidebar-footer">
           <div className="chain-status"><span className="status-dot" /> Sepolia Connected</div>

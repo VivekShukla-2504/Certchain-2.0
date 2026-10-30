@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import api, { API_ORIGIN } from "../api";
-import { Alert, Button, Field } from "../components/UI";
+import { Alert, Button, Field, StatCard } from "../components/UI";
 import {
   connectMetaMaskWallet,
   getConnectedWallet,

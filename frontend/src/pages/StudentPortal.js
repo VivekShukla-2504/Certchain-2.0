@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api, { API_ORIGIN } from "../api";
-import { Alert, Button } from "../components/UI";
+import { Alert, Button, StatCard } from "../components/UI";
 import {
   connectMetaMaskWallet,
   getConnectedWallet,

@@ -4,8 +4,8 @@ import api from "../api";
 import { Button, StatCard } from "../components/UI";
 import {
   getConnectedWallet,
-  requestWalletSignature,
-  switchToSepolia,
+  signChallenge,
+  ensureSepoliaNetwork,
   SEPOLIA_CHAIN_ID_DEC
 } from "../utils/web3";
 function canManageCertificates() {
@@ -105,14 +105,14 @@ export default function Dashboard() {
     setConnectingWallet(true);
     setError("");
     try {
-      await switchToSepolia();
+      await ensureSepoliaNetwork();
       setIsSepolia(true);
       const addr = await getConnectedWallet();
       setWalletAddress(addr);
 
       // Verify wallet ownership with signed challenge
       const { challenge } = (await api.get(`/auth/challenge/${addr}`)).data;
-      const signature = await requestWalletSignature(challenge, addr);
+      const signature = await signChallenge(challenge, addr);
       await api.post("/auth/verify-signature", { walletAddress: addr, signature });
       setActionSuccess("Institute MetaMask wallet connected and cryptographically verified on Sepolia!");
     } catch (err) {

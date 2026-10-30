@@ -72,6 +72,16 @@ export function PublicHeader() {
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
           Sepolia (11155111)
         </span>
+        <a
+          href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+          target="_blank"
+          rel="noreferrer"
+          className="network-pill-desktop"
+          style={{ textDecoration: "none", fontFamily: "monospace", color: "#64748b", background: "#f8fafc", border: "1px solid #e2e8f0" }}
+          title="CertificateRegistry Contract Address on Sepolia"
+        >
+          Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)} ↗
+        </a>
       </div>
 
       {/* Desktop Navigation */}
@@ -81,6 +91,9 @@ export function PublicHeader() {
         </NavLink>
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify" style={{ fontWeight: 600 }}>
           💼 Employer Verify
+        </NavLink>
+        <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/keys" style={{ fontWeight: 600 }}>
+          ⛓️ Sepolia Keys
         </NavLink>
         {institution ? (
           <Link to="/dashboard" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
@@ -149,6 +162,9 @@ export function PublicHeader() {
             </NavLink>
             <NavLink to="/verify" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
               💼 Employer Verification Portal
+            </NavLink>
+            <NavLink to="/keys" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
+              ⛓️ Sepolia Keys & Contract Details
             </NavLink>
             {institution ? (
               <Link to="/dashboard" className="mobile-nav-item">

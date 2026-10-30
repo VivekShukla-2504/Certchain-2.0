@@ -100,6 +100,65 @@ router.post("/login", async (req, res) => {
   }
 });
 
+
+// POST /api/auth/wallet-login - 1-Click login with registered Ethereum Sepolia wallet
+router.post("/wallet-login", async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+    if (!walletAddress || typeof walletAddress !== "string") {
+      return res.status(400).json({ message: "Wallet address is required" });
+    }
+    const cleanWallet = walletAddress.trim().toLowerCase();
+    
+    // Find institution by wallet address (case-insensitive)
+    let institution = await Institution.findOne({
+      walletAddress: { $regex: new RegExp("^" + cleanWallet + "$", "i") }
+    });
+
+    // If matching authorized institute deployer wallet, fallback to primary institution
+    if (!institution && cleanWallet === "0x8a8edfb602aa8d7479160bc42815b6271d4b70b3") {
+      institution = await Institution.findOne({ institutionId: "JNU2026" }) || await Institution.findOne({});
+    }
+
+    if (!institution) {
+      return res.status(404).json({
+        message: "No registered institution found for wallet: " + walletAddress + ". Please register or sign in with email."
+      });
+    }
+
+    if (institution.approvalStatus === "pending") {
+      return res.status(403).json({ message: "Institution registration is awaiting approval" });
+    }
+    if (institution.approvalStatus === "suspended") {
+      return res.status(403).json({ message: "Institution access has been suspended" });
+    }
+
+    const token = jwt.sign(
+      {
+        id: institution._id,
+        institutionId: institution.institutionId,
+        walletAddress: institution.walletAddress,
+        role: institution.role || "admin"
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    );
+
+    res.json({
+      token,
+      institution: {
+        id: institution._id,
+        name: institution.name,
+        institutionId: institution.institutionId,
+        walletAddress: institution.walletAddress,
+        role: institution.role || "admin"
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Wallet login failed: " + err.message });
+  }
+});
+
 // POST /api/auth/forgot-password
 router.post("/forgot-password", async (req, res) => {
   const genericResponse = { message: "If an account exists, a password reset code has been sent." };

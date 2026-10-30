@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Alert, Button } from "../components/UI";
 import { connectMetaMaskWallet } from "../utils/web3";
 
-const CONTRACT_ADDRESS = "0xCCCa30A14ff8189EC5d4f677C3b6dbd4Eb21A04D";
+const CONTRACT_ADDRESS = "0xCa70e753D2DFcd32532Fb3f236B66c9494F01330";
 const INSTITUTE_ADDRESS = "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3";
 
 export default function KeyGenerator() {

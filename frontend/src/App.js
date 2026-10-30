@@ -58,7 +58,7 @@ export default function App() {
         <Route path="/verify" element={<VerifyRoute />} />
         <Route path="/verify/:certificateId" element={<PublicCertificateRoute />} />
         <Route path="/student" element={<><PublicHeader /><StudentPortal /></>} />
-        <Route path="/keys" element={<Navigate to="/" replace />} />
+        <Route path="/keys" element={<><PublicHeader /><KeyGenerator /></>} />
         <Route path="/dashboard" element={<PrivateRoute><AuthenticatedLayout><Dashboard /></AuthenticatedLayout></PrivateRoute>} />
         <Route path="/students" element={<PrivateRoute><AuthenticatedLayout><Students /></AuthenticatedLayout></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><AuthenticatedLayout><Settings /></AuthenticatedLayout></PrivateRoute>} />

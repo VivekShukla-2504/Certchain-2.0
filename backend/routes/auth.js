@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const Institution = require("../models/Institution");
 const { readString } = require("../utils/validation");
-const { getMailTransport } = require("../utils/mailer");
+const { sendEmailMessage } = require("../utils/mailer");
 
 const router = express.Router();
 
@@ -160,11 +160,6 @@ router.post("/forgot-password", async (req, res) => {
       console.warn(`[CertChain Auth] Forgot password requested for unregistered email: ${email}`);
       return res.json(genericResponse);
     }
-    const transport = getMailTransport();
-    if (!transport) {
-      console.warn(`[CertChain Auth] Mail transport unavailable for forgot password request to: ${email}`);
-      return res.json(genericResponse);
-    }
 
     const otp = crypto.randomInt(100000, 1000000).toString();
     institution.passwordResetOtpHash = crypto.createHash("sha256").update(otp).digest("hex");
@@ -172,18 +167,48 @@ router.post("/forgot-password", async (req, res) => {
     institution.passwordResetAttempts = 0;
     await institution.save();
 
-    console.log(`[CertChain Auth] Sending password reset OTP email to ${institution.email}...`);
-    await transport.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      to: institution.email,
-      subject: "CertChain password reset code",
-      text: `Your CertChain password reset code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
-    });
-    console.log(`[CertChain Auth] Password reset OTP email successfully sent to ${institution.email}`);
+    console.log(`[CertChain Security] Password Reset OTP generated for ${institution.email}: [ ${otp} ]`);
+
+    try {
+      await sendEmailMessage({
+        to: institution.email,
+        subject: "CertChain password reset code",
+        text: `Your CertChain password reset code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
+      });
+      console.log(`[CertChain Auth] Password reset OTP email dispatched for ${institution.email}`);
+    } catch (mailErr) {
+      console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
+    }
+
     return res.json(genericResponse);
   } catch (err) {
     console.error(`[CertChain Auth] Error in forgot-password for ${req.body?.email}:`, err.message);
     return res.json(genericResponse);
+  }
+});
+
+// POST /api/auth/verify-otp - cryptographically verify OTP before advancing to password form
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (!normalizedEmail || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ message: "Email and a valid 6-digit code are required" });
+    }
+    const institution = await Institution.findOne({ email: normalizedEmail });
+    const expired = !institution?.passwordResetExpiresAt || institution.passwordResetExpiresAt.getTime() < Date.now();
+    if (!institution || expired || institution.passwordResetAttempts >= 5) {
+      return res.status(400).json({ message: "Invalid or expired reset code" });
+    }
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    if (otpHash !== institution.passwordResetOtpHash) {
+      institution.passwordResetAttempts += 1;
+      await institution.save();
+      return res.status(400).json({ message: "Invalid or expired reset code" });
+    }
+    return res.json({ valid: true, message: "Code verified successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Verification failed" });
   }
 });
 

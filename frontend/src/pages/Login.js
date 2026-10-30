@@ -5,7 +5,6 @@ import { Alert, Brand, Button, Field, PasswordField } from "../components/UI";
 import { connectMetaMaskWallet } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0xCa70e753D2DFcd32532Fb3f236B66c9494F01330";
-const INSTITUTE_PUBLIC_KEY = "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -58,24 +57,29 @@ export default function Login() {
             Issue and verify academic certificates with a permanent, tamper-evident record anchored to Ethereum Sepolia.
           </p>
 
-          <div style={{ marginTop: "2rem", padding: "1rem", background: "rgba(255,255,255,0.08)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.15)", fontSize: "0.85rem" }}>
-            <strong style={{ color: "#f7f0df", display: "block", marginBottom: "0.5rem" }}>⛓️ Sepolia On-Chain Identity</strong>
-            <div style={{ marginBottom: "0.5rem" }}>
-              <span style={{ opacity: 0.7, fontSize: "0.75rem", display: "block" }}>Contract Address:</span>
-              <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ color: "#d4b06f", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>
+          <div
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              background: "rgba(255,255,255,0.08)",
+              borderRadius: "8px",
+              border: "1px solid rgba(255,255,255,0.15)",
+              fontSize: "0.85rem"
+            }}
+          >
+            <strong style={{ color: "#f7f0df", display: "block", marginBottom: "0.5rem" }}>
+              ⛓️ Ethereum Sepolia Network
+            </strong>
+            <div>
+              <span style={{ opacity: 0.7, fontSize: "0.75rem", display: "block" }}>Smart Contract Address:</span>
+              <a
+                href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "#d4b06f", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}
+              >
                 {CONTRACT_ADDRESS} ↗
               </a>
-            </div>
-            <div>
-              <span style={{ opacity: 0.7, fontSize: "0.75rem", display: "block" }}>Authorized Issuer Public Key:</span>
-              <a href={`https://sepolia.etherscan.io/address/${INSTITUTE_PUBLIC_KEY}`} target="_blank" rel="noreferrer" style={{ color: "#d4b06f", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>
-                {INSTITUTE_PUBLIC_KEY} ↗
-              </a>
-            </div>
-            <div style={{ marginTop: "0.75rem" }}>
-              <Link to="/keys" style={{ color: "#ffffff", textDecoration: "underline", fontSize: "0.8rem", fontWeight: 600 }}>
-                🔍 View Full Keys & Network Details ↗
-              </Link>
             </div>
           </div>
         </div>
@@ -111,11 +115,20 @@ export default function Login() {
               🦊 {walletLoading ? "Connecting to Sepolia..." : "Sign In with MetaMask (Sepolia Wallet)"}
             </button>
             <p className="muted small" style={{ textAlign: "center", margin: "0.5rem 0 0" }}>
-              1-click sign in for registered institution wallets (e.g. <code>{INSTITUTE_PUBLIC_KEY.slice(0, 10)}...</code>)
+              1-click sign in for registered institution Web3 wallets
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1.5rem 0", color: "var(--cc-muted)", fontSize: "0.85rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "1rem",
+              margin: "1.5rem 0",
+              color: "var(--cc-muted)",
+              fontSize: "0.85rem"
+            }}
+          >
             <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--cc-line)" }} />
             <span>OR SIGN IN WITH EMAIL</span>
             <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--cc-line)" }} />
@@ -149,15 +162,6 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign in with Email"}
             </Button>
           </form>
-
-          {/* Helpful Reference Card */}
-          <div style={{ marginTop: "1.5rem", padding: "0.85rem", background: "var(--cc-cloud)", borderRadius: "6px", fontSize: "0.8rem", border: "1px solid var(--cc-line)" }}>
-            <span style={{ fontWeight: 700, display: "block", marginBottom: "4px" }}>💡 Registered Accounts in System:</span>
-            <div style={{ color: "var(--cc-muted)" }}>
-              • <code>viveks72_scs@jnu.ac.in</code> (Issuer Wallet: <code>0x8A8edF...70B3</code>)<br />
-              • <code>7800652515vivek@gmail.com</code> (Wallet: <code>0xCa70e7...1330</code>)
-            </div>
-          </div>
 
           <p className="muted small" style={{ marginTop: "1.25rem" }}>
             Don't have an institution account? <Link to="/signup">Register institution</Link>

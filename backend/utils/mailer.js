@@ -4,7 +4,6 @@ function getMailTransport() {
   const user = (process.env.SMTP_USER || "").trim();
   const rawPass = (process.env.SMTP_PASS || "").trim();
   if (!user || !rawPass) {
-    console.warn("[CertChain Mailer] SMTP_USER or SMTP_PASS is missing in environment variables. Email service is running in simulated mode.");
     return null;
   }
 
@@ -20,9 +19,9 @@ function getMailTransport() {
         user,
         pass: cleanPass
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000
     });
   }
 
@@ -37,10 +36,100 @@ function getMailTransport() {
       user,
       pass: cleanPass
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000
   });
+}
+
+/**
+ * Sends email via Resend HTTPS REST API (Port 443).
+ * Never blocked by cloud providers like Render Free Tier.
+ */
+async function sendViaResend({ to, subject, text, attachments = [] }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+
+  const fromEmail = process.env.MAIL_FROM || "onboarding@resend.dev";
+  const formattedFrom = fromEmail.includes("<") ? fromEmail : `CertChain <${fromEmail}>`;
+
+  const payload = {
+    from: formattedFrom,
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    text
+  };
+
+  if (attachments && attachments.length > 0) {
+    payload.attachments = attachments.map((att) => ({
+      filename: att.filename,
+      content: Buffer.isBuffer(att.content) ? att.content.toString("base64") : Buffer.from(att.content).toString("base64")
+    }));
+  }
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || `Resend error: ${res.status}`);
+  }
+  return { messageId: data.id, provider: "resend" };
+}
+
+/**
+ * Unified resilient email sender:
+ * 1. Attempts Resend HTTPS API (Port 443) if configured
+ * 2. Falls back to Nodemailer SMTP
+ */
+async function sendEmailMessage({ to, subject, text, attachments = [] }) {
+  // 1. Check Resend HTTPS API (works everywhere, including Render free tier)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      console.log(`[CertChain Mailer] Dispatching via Resend HTTPS to ${to}...`);
+      const result = await sendViaResend({ to, subject, text, attachments });
+      console.log(`[CertChain Mailer] Delivered via Resend to ${to} (ID: ${result.messageId})`);
+      return result;
+    } catch (resendErr) {
+      console.warn(`[CertChain Mailer] Resend HTTPS failed (${resendErr.message}), falling back to SMTP...`);
+    }
+  }
+
+  // 2. Check SMTP transport
+  const transport = getMailTransport();
+  if (!transport) {
+    console.warn(`[CertChain Mailer] No email credentials configured. Simulated email to: ${to}`);
+    return null;
+  }
+
+  try {
+    console.log(`[CertChain Mailer] Dispatching via SMTP to ${to}...`);
+    const info = await transport.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+      to,
+      subject,
+      text,
+      attachments: attachments ? attachments.map((att) => ({
+        filename: att.filename,
+        content: att.content,
+        contentType: att.contentType || "application/octet-stream"
+      })) : []
+    });
+    console.log(`[CertChain Mailer] Delivered via SMTP to ${to} (MessageId: ${info.messageId})`);
+    return info;
+  } catch (err) {
+    console.error(`[CertChain Mailer] SMTP delivery failed to ${to}: ${err.message}`);
+    if (err.message && (err.message.includes("ETIMEDOUT") || err.message.includes("timeout"))) {
+      console.warn("[CertChain Mailer] Note: Render Free Tier firewalls block raw outbound SMTP ports 25, 465, and 587. Configure RESEND_API_KEY for HTTPS delivery.");
+    }
+    throw err;
+  }
 }
 
 /**
@@ -58,7 +147,6 @@ async function sendCertificateIssuedEmail({
 }) {
   if (!studentEmail) return;
 
-  const transport = getMailTransport();
   const subject = `🎓 Official Academic Certificate Issued: ${course} [ID: ${certId}]`;
   const textContent = `Dear ${candidateName},
 
@@ -74,33 +162,20 @@ The official PDF document with verification QR code is attached to this email.
 Best regards,
 ${institutionId} Credential Registry (Powered by CertChain)`;
 
-  if (!transport) {
-    console.log(`[CertChain Email Service] Simulated email dispatched to ${studentEmail} for Certificate ID: ${certId}`);
-    return;
-  }
+  const attachments = pdfBuffer ? [{ filename: `${certId}.pdf`, content: pdfBuffer, contentType: "application/pdf" }] : [];
 
   try {
-    console.log(`[CertChain Email Service] Dispatching certificate email to student: ${studentEmail} (Cert ID: ${certId})...`);
-    const info = await transport.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+    return await sendEmailMessage({
       to: studentEmail,
       subject,
       text: textContent,
-      attachments: pdfBuffer ? [
-        {
-          filename: `${certId}.pdf`,
-          content: pdfBuffer,
-          contentType: "application/pdf"
-        }
-      ] : []
+      attachments
     });
-    console.log(`[CertChain Email Service] Certificate email sent successfully to ${studentEmail} (MessageId: ${info.messageId})`);
-    return info;
   } catch (err) {
-    console.error(`[CertChain Email Service] Failed to send email to ${studentEmail}:`, err.message);
+    console.error(`[CertChain Email Service] Failed to send certificate email to ${studentEmail}:`, err.message);
   }
 }
 
-module.exports = { getMailTransport, sendCertificateIssuedEmail };
+module.exports = { getMailTransport, sendEmailMessage, sendCertificateIssuedEmail };
 
 

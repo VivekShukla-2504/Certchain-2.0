@@ -521,9 +521,6 @@ router.get("/requests/:requestId/submitted-doc", requireAuth, async (req, res) =
     res.status(500).json({ message: "Submitted PDF unavailable" });
   }
 });
-    res.status(500).json({ message: "Rejection failed: " + err.message });
-  }
-});
 
 // GET /api/verify/:certId/document - Employer downloads/views document once Institute approves
 router.get("/:certId/document", async (req, res) => {

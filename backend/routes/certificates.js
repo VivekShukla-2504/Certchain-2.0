@@ -122,7 +122,6 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     if (validationError) return res.status(400).json({ message: validationError });
 
     const normalized = { candidateName: candidateName.trim(), rollNumber: rollNumber.trim(), course: course.trim(), grade: grade.trim(), issueDate: issueDate.trim() };
-    const institutionId = req.institution.institutionId;
     const preparedCertId = typeof req.body.preparedCertId === "string" ? req.body.preparedCertId : "";
     const preparedToken = typeof req.body.preparedToken === "string" ? req.body.preparedToken : "";
     const preparedExpiresAt = Number(req.body.preparedExpiresAt);

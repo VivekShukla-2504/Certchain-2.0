@@ -162,3 +162,7 @@ export function disconnectWallet() {
   localStorage.removeItem("certchain_stakeholder_wallet");
   localStorage.removeItem("certchain_stakeholder_role");
 }
+
+export const switchToSepolia = ensureSepoliaNetwork;
+export const requestWalletSignature = signChallenge;
+

@@ -33,6 +33,11 @@ router.post("/signup", async (req, res) => {
     }
     if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return res.status(400).json({ message: "Email has an invalid format" });
+    if (!walletAddress || typeof walletAddress !== "string" || !ethers.isAddress(walletAddress.trim())) {
+      return res.status(400).json({
+        message: "Invalid Ethereum wallet address. Address must be a valid 42-character hex address (e.g. 0x...)."
+      });
+    }
 
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedInstitutionId = institutionId.trim();

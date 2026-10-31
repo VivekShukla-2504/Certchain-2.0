@@ -41,5 +41,14 @@ test("OTP Verification & Strict Account Existence Checks", async (t) => {
 
     assert.notEqual(enteredHash, correctHash, "Wrong OTP hash must not match");
   });
+
+  await t.test("Rejects dummy, incomplete, or invalid Ethereum wallet addresses", () => {
+    const { ethers } = require("ethers");
+    const dummyShortAddress = "0x8A8edFB602AA8D7479160bC42815B627"; // 33 chars, missing hex digits
+    const validAddress = "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3"; // 42 chars valid hex
+
+    assert.equal(ethers.isAddress(dummyShortAddress), false, "Incomplete dummy address must be invalid");
+    assert.equal(ethers.isAddress(validAddress), true, "Valid 42-char address must be accepted");
+  });
 });
 

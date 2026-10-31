@@ -36,6 +36,9 @@ export default function Signup() {
     if (Object.values(form).some((value) => !value.trim())) setError("Complete all fields to create your institution.");
     if (Object.keys(errors).length) { setFieldErrors(errors); return; }
     if (form.password.length < 8) return setError("Use a password with at least 8 characters.");
+    if (!form.walletAddress.trim() || !/^0x[0-9a-fA-F]{40}$/.test(form.walletAddress.trim())) {
+      return setError("Invalid Ethereum wallet address. Please connect your MetaMask or enter a valid 42-character address (0x...).");
+    }
     setLoading(true);
     try {
       const response = await api.post("/auth/signup", form);

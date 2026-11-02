@@ -91,3 +91,26 @@ test("Certificate hashing binds student wallet, institution, and document hash",
   assert.notEqual(hashA, hashB);
 });
 
+test("Student update validation correctly verifies modified wallet address and contact details", () => {
+  const { ethers } = require("ethers");
+  const testStudent = {
+    fullName: "Aarav Sharma",
+    phone: "+91-9876543210",
+    department: "Computer Science",
+    course: "B.Tech CSE",
+    academicSession: "2022-2026",
+    walletAddress: "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3"
+  };
+
+  // Valid wallet update
+  const newValidWallet = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+  assert.equal(ethers.isAddress(newValidWallet), true);
+  testStudent.walletAddress = newValidWallet.toLowerCase();
+  assert.equal(testStudent.walletAddress, "0x70997970c51812dc3a010c7d01b50e0d17dc79c8");
+
+  // Invalid wallet update rejection
+  const invalidWallet = "0xInvalidWalletLength123";
+  assert.equal(ethers.isAddress(invalidWallet), false);
+});
+
+

@@ -88,6 +88,22 @@ export default function Dashboard() {
   const [registeringStudent, setRegisteringStudent] = useState(false);
   const [studentFormError, setStudentFormError] = useState("");
 
+  // Student Edit State
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editForm, setEditForm] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    phone: "",
+    enrollmentNumber: "",
+    department: "",
+    course: "",
+    academicSession: "2022-2026",
+    walletAddress: ""
+  });
+  const [updatingStudent, setUpdatingStudent] = useState(false);
+  const [editFormError, setEditFormError] = useState("");
+
   // Certificate Issuance State
   const [issueStep, setIssueStep] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -209,6 +225,61 @@ export default function Dashboard() {
       setStudentFormError(err.response?.data?.message || "Failed to register student");
     } finally {
       setRegisteringStudent(false);
+    }
+  }
+
+  // --- Student Edit Operations ---
+  function handleOpenEditModal(student) {
+    setEditingStudent(student);
+    setEditForm({
+      fullName: student.fullName || "",
+      username: student.username || "",
+      email: student.email || "",
+      phone: student.phone || "",
+      enrollmentNumber: student.enrollmentNumber || "",
+      department: student.department || "",
+      course: student.course || "",
+      academicSession: student.academicSession || "2022-2026",
+      walletAddress: student.walletAddress || ""
+    });
+    setEditFormError("");
+  }
+
+  function handleCloseEditModal() {
+    setEditingStudent(null);
+    setEditFormError("");
+  }
+
+  async function handleUpdateStudent(e) {
+    e.preventDefault();
+    setEditFormError("");
+    setActionSuccess("");
+
+    if (!editForm.fullName.trim() || !editForm.email.trim() || !editForm.enrollmentNumber.trim()) {
+      setEditFormError("Please fill out all required student details.");
+      return;
+    }
+    if (!editForm.walletAddress.trim() || !editForm.walletAddress.startsWith("0x") || editForm.walletAddress.trim().length !== 42) {
+      setEditFormError("Please enter a valid 42-character Ethereum wallet address (0x...) for the student.");
+      return;
+    }
+
+    setUpdatingStudent(true);
+    try {
+      const studentId = editingStudent.id || editingStudent._id;
+      const res = await api.put(`/students/${studentId}`, editForm);
+      const updated = res.data.student;
+
+      setStudents((prev) =>
+        prev.map((s) => ((s.id || s._id) === studentId ? { ...s, ...updated } : s))
+      );
+
+      setActionSuccess(`Student "${updated.fullName}" (${updated.enrollmentNumber}) updated successfully! Associated with wallet ${updated.walletAddress.slice(0, 10)}...`);
+      setEditingStudent(null);
+    } catch (err) {
+      setEditFormError(err.response?.data?.message || "Failed to update student details");
+    } finally {
+      setUpdatingStudent(false);
     }
   }
 
@@ -744,14 +815,26 @@ export default function Dashboard() {
                           <span className="badge badge-neutral">{s.certificatesCount || 0}</span>
                         </td>
                         <td data-label="Action">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
-                            onClick={() => handleSelectStudentForIssuance(s)}
-                          >
-                            ＋ Issue Certificate
-                          </Button>
+                          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
+                              onClick={() => handleSelectStudentForIssuance(s)}
+                              title="Issue a credential to this student"
+                            >
+                              ＋ Issue
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", borderColor: "rgba(59, 130, 246, 0.5)", color: "#3b82f6" }}
+                              onClick={() => handleOpenEditModal(s)}
+                              title="Edit student profile & wallet address"
+                            >
+                              ✏️ Edit
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1385,6 +1468,168 @@ export default function Dashboard() {
             </div>
           )}
         </article>
+      )}
+
+      {/* EDIT STUDENT MODAL */}
+      {editingStudent && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={(e) => { if (e.target === e.currentTarget) handleCloseEditModal(); }}>
+          <div
+            className="card card-pad"
+            style={{
+              maxWidth: 640,
+              width: "95%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+              border: "1px solid rgba(59, 130, 246, 0.4)",
+              background: "var(--cc-bg, #0b0f19)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.75rem" }}>
+              <div>
+                <span className="eyebrow" style={{ color: "#3b82f6" }}>Student Profile Management</span>
+                <h2 style={{ margin: "0.25rem 0 0", fontSize: "1.25rem" }}>Edit Student Record</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseEditModal}
+                style={{ background: "transparent", border: "none", color: "var(--cc-muted)", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1 }}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="muted small" style={{ margin: "0 0 1.25rem" }}>
+              Update profile details or correct the assigned Ethereum wallet address. Future certificates issued will automatically bind to the updated wallet.
+            </p>
+
+            {editFormError && (
+              <div style={{ marginBottom: "1rem" }}>
+                <Alert>{editFormError}</Alert>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateStudent}>
+              <div className="form-grid-2">
+                <Field label="Full Student Name *">
+                  <input
+                    className="input"
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Username (Unique ID) *">
+                  <input
+                    className="input"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase() })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Email Address *">
+                  <input
+                    type="email"
+                    className="input"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Phone Number *">
+                  <input
+                    className="input"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Enrollment / Roll Number *">
+                  <input
+                    className="input"
+                    value={editForm.enrollmentNumber}
+                    onChange={(e) => setEditForm({ ...editForm, enrollmentNumber: e.target.value })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Department *">
+                  <input
+                    className="input"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Course / Qualification *">
+                  <input
+                    className="input"
+                    value={editForm.course}
+                    onChange={(e) => setEditForm({ ...editForm, course: e.target.value })}
+                    required
+                  />
+                </Field>
+
+                <Field label="Academic Session *">
+                  <input
+                    className="input"
+                    value={editForm.academicSession}
+                    onChange={(e) => setEditForm({ ...editForm, academicSession: e.target.value })}
+                    required
+                  />
+                </Field>
+              </div>
+
+              <div style={{ marginTop: "1rem" }}>
+                <Field label="Student Ethereum Wallet Address (0x...) *">
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <input
+                      className="input mono"
+                      style={{ flex: 1, fontSize: "0.85rem" }}
+                      placeholder="0xStudentSepoliaWalletAddress..."
+                      value={editForm.walletAddress}
+                      onChange={(e) => setEditForm({ ...editForm, walletAddress: e.target.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                      onClick={async () => {
+                        try {
+                          const addr = await connectMetaMaskWallet();
+                          setEditForm((prev) => ({ ...prev, walletAddress: addr }));
+                        } catch (e) {
+                          alert(e.message);
+                        }
+                      }}
+                    >
+                      🦊 Read MetaMask
+                    </button>
+                  </div>
+                  <span className="muted small" style={{ display: "block", marginTop: "0.35rem" }}>
+                    Associate student's verified public key. Credentials issued to this student will be visible in their student portal.
+                  </span>
+                </Field>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.5rem", borderTop: "1px solid var(--cc-line)", paddingTop: "1rem" }}>
+                <Button type="button" variant="secondary" onClick={handleCloseEditModal}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={updatingStudent}>
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

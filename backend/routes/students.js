@@ -262,5 +262,159 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/students/:id
+ * Update an existing student record (including Ethereum wallet address, course, department, contact info).
+ * Protected: requires institution auth and role (admin or issuer).
+ */
+router.put("/:id", requireAuth, requireRole("admin", "issuer"), async (req, res) => {
+  try {
+    const student = await Student.findOne({
+      _id: req.params.id,
+      institutionId: req.institution.institutionId
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student record not found or unauthorized to edit" });
+    }
+
+    const {
+      fullName,
+      phone,
+      department,
+      course,
+      academicSession,
+      walletAddress,
+      email,
+      enrollmentNumber,
+      username
+    } = req.body;
+
+    // Validate Full Name
+    if (fullName !== undefined) {
+      if (typeof fullName !== "string" || fullName.trim().length < 2) {
+        return res.status(400).json({ message: "Full name must be at least 2 characters" });
+      }
+      student.fullName = fullName.trim();
+    }
+
+    // Validate Phone
+    if (phone !== undefined) {
+      if (typeof phone !== "string" || phone.trim().length < 6) {
+        return res.status(400).json({ message: "Valid phone number is required" });
+      }
+      student.phone = phone.trim();
+    }
+
+    // Validate Department
+    if (department !== undefined) {
+      if (typeof department !== "string" || department.trim().length < 2) {
+        return res.status(400).json({ message: "Department must be at least 2 characters" });
+      }
+      student.department = department.trim();
+    }
+
+    // Validate Course
+    if (course !== undefined) {
+      if (typeof course !== "string" || course.trim().length < 2) {
+        return res.status(400).json({ message: "Course must be at least 2 characters" });
+      }
+      student.course = course.trim();
+    }
+
+    // Validate Academic Session
+    if (academicSession !== undefined) {
+      if (typeof academicSession !== "string" || academicSession.trim().length < 4) {
+        return res.status(400).json({ message: "Academic session must be at least 4 characters (e.g. 2022-2026)" });
+      }
+      student.academicSession = academicSession.trim();
+    }
+
+    // Validate Ethereum Wallet Address
+    if (walletAddress !== undefined) {
+      if (typeof walletAddress !== "string" || !ethers.isAddress(walletAddress.trim())) {
+        return res.status(400).json({ message: "Valid Ethereum wallet address is required (0x... format)" });
+      }
+      student.walletAddress = walletAddress.trim().toLowerCase();
+    }
+
+    // Validate Email & check duplicate
+    if (email !== undefined) {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+        return res.status(400).json({ message: "Valid email address is required" });
+      }
+      if (cleanEmail !== student.email) {
+        const existingEmail = await Student.findOne({ email: cleanEmail, _id: { $ne: student._id } });
+        if (existingEmail) {
+          return res.status(409).json({ message: `Email "${cleanEmail}" is already registered to another student` });
+        }
+        student.email = cleanEmail;
+      }
+    }
+
+    // Validate Enrollment Number & check duplicate
+    if (enrollmentNumber !== undefined) {
+      const cleanEnrollment = enrollmentNumber.trim();
+      if (cleanEnrollment.length < 2) {
+        return res.status(400).json({ message: "Enrollment number must be at least 2 characters" });
+      }
+      if (cleanEnrollment !== student.enrollmentNumber) {
+        const existingEnrollment = await Student.findOne({ enrollmentNumber: cleanEnrollment, _id: { $ne: student._id } });
+        if (existingEnrollment) {
+          return res.status(409).json({ message: `Enrollment number "${cleanEnrollment}" is already registered` });
+        }
+        student.enrollmentNumber = cleanEnrollment;
+      }
+    }
+
+    // Validate Username & check duplicate
+    if (username !== undefined) {
+      const cleanUsername = username.trim().toLowerCase();
+      if (!/^[a-zA-Z0-9._-]{3,30}$/.test(cleanUsername)) {
+        return res.status(400).json({ message: "Username must be 3-30 characters (letters, numbers, dot, underscore, dash)" });
+      }
+      if (cleanUsername !== student.username) {
+        const existingUsername = await Student.findOne({ username: cleanUsername, _id: { $ne: student._id } });
+        if (existingUsername) {
+          return res.status(409).json({ message: `Username "${cleanUsername}" is already taken` });
+        }
+        student.username = cleanUsername;
+      }
+    }
+
+    await student.save();
+
+    await recordAuditEvent({
+      action: "student_updated",
+      institutionId: req.institution.institutionId,
+      actorUserId: req.institution.id,
+      certId: student.enrollmentNumber,
+      documentType: "StudentProfile"
+    });
+
+    return res.json({
+      message: "Student profile updated successfully",
+      student: {
+        id: student._id,
+        _id: student._id,
+        fullName: student.fullName,
+        username: student.username,
+        email: student.email,
+        phone: student.phone,
+        enrollmentNumber: student.enrollmentNumber,
+        department: student.department,
+        course: student.course,
+        academicSession: student.academicSession,
+        walletAddress: student.walletAddress,
+        updatedAt: student.updatedAt
+      }
+    });
+  } catch (err) {
+    console.error(`[CertChain Students] Update error:`, err);
+    res.status(500).json({ message: "Failed to update student: " + err.message });
+  }
+});
+
 module.exports = router;
 

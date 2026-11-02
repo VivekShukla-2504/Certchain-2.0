@@ -94,52 +94,34 @@ export function PublicHeader() {
     <header className="topbar public-topbar">
       <div className="topbar-brand-area">
         <Link to="/" className="brand-link"><Brand /></Link>
-        <span
-          className="network-pill-desktop"
-          title="Connected to Ethereum Sepolia Testnet"
-        >
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-          Sepolia (11155111)
-        </span>
-        <a
-          href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
-          target="_blank"
-          rel="noreferrer"
-          className="network-pill-desktop network-pill-contract"
-          title="CertificateRegistry Contract Address on Sepolia"
-        >
-          Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)} ↗
-        </a>
       </div>
 
       {/* Desktop Navigation */}
       <nav className="nav-links desktop-nav-links" aria-label="Primary navigation">
-        <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/student" style={{ fontWeight: 600 }}>
-          Student Portal
-        </NavLink>
-        <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify" style={{ fontWeight: 600 }}>
-          Employer Verification
-        </NavLink>
-        <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/keys" style={{ fontWeight: 600 }}>
-          Architecture & Keys
-        </NavLink>
-
         {isInstituteAuth ? (
-          <Link to="/dashboard" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
-            🏛️ Workspace ({institution.name?.slice(0, 10)}...)
-          </Link>
-        ) : isStudentAuth ? (
-          <Link to="/student" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", borderColor: "#10b981", color: "#10b981" }}>
-            🎓 {student?.fullName ? student.fullName.slice(0, 12) : "Student Vault"}
-          </Link>
+          <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/dashboard" style={{ fontWeight: 600 }}>
+            🏛️ Institution Workspace
+          </NavLink>
         ) : isEmployerAuth ? (
-          <Link to="/verify" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", borderColor: "#3b82f6", color: "#3b82f6" }}>
+          <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify" style={{ fontWeight: 600 }}>
             💼 Employer Workspace
-          </Link>
+          </NavLink>
+        ) : isStudentAuth ? (
+          <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/student" style={{ fontWeight: 600 }}>
+            🎓 Student Vault
+          </NavLink>
         ) : (
-          <Link to="/login" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
-            Institution Portal
-          </Link>
+          <>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/student" style={{ fontWeight: 600 }}>
+              Student Portal
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify" style={{ fontWeight: 600 }}>
+              Employer Verification
+            </NavLink>
+            <Link to="/login" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
+              Institution Portal
+            </Link>
+          </>
         )}
 
         {walletAddress ? (
@@ -201,48 +183,31 @@ export function PublicHeader() {
       {/* Mobile Nav Drawer Dropdown */}
       {mobileNavOpen && (
         <div className="mobile-nav-drawer">
-          <div className="mobile-nav-status">
-            <span className="network-pill-desktop" style={{ width: "fit-content" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-              Ethereum Sepolia (Chain 11155111)
-            </span>
-            <a
-              href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
-              target="_blank"
-              rel="noreferrer"
-              className="network-pill-contract"
-              style={{ width: "fit-content", marginTop: "4px" }}
-            >
-              Contract: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-6)} ↗
-            </a>
-          </div>
-
           <div className="mobile-nav-links">
-            <NavLink to="/student" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
-              Student Credential Vault
-            </NavLink>
-            <NavLink to="/verify" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
-              Employer Verification Portal
-            </NavLink>
-            <NavLink to="/keys" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
-              Sepolia Keys & Architecture
-            </NavLink>
             {isInstituteAuth ? (
-              <Link to="/dashboard" className="mobile-nav-item">
-                🏛️ Institution Dashboard ({institution.name})
-              </Link>
-            ) : isStudentAuth ? (
-              <Link to="/student" className="mobile-nav-item" style={{ color: "#10b981" }}>
-                🎓 Student Vault ({student?.fullName || "Verified"})
-              </Link>
+              <NavLink to="/dashboard" className="mobile-nav-item" onClick={() => setMobileNavOpen(false)}>
+                🏛️ Institution Dashboard ({institution?.name || "Workspace"})
+              </NavLink>
             ) : isEmployerAuth ? (
-              <Link to="/verify" className="mobile-nav-item" style={{ color: "#3b82f6" }}>
-                💼 Employer Portal (Verified)
-              </Link>
+              <NavLink to="/verify" className="mobile-nav-item" style={{ color: "#3b82f6" }} onClick={() => setMobileNavOpen(false)}>
+                💼 Employer Portal ({employerWallet ? `${employerWallet.slice(0, 8)}...` : "Workspace"})
+              </NavLink>
+            ) : isStudentAuth ? (
+              <NavLink to="/student" className="mobile-nav-item" style={{ color: "#10b981" }} onClick={() => setMobileNavOpen(false)}>
+                🎓 Student Vault ({student?.fullName || "Verified"})
+              </NavLink>
             ) : (
-              <Link to="/login" className="mobile-nav-item">
-                Institution Portal (Sign In / Register)
-              </Link>
+              <>
+                <NavLink to="/student" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`} onClick={() => setMobileNavOpen(false)}>
+                  Student Credential Vault
+                </NavLink>
+                <NavLink to="/verify" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`} onClick={() => setMobileNavOpen(false)}>
+                  Employer Verification Portal
+                </NavLink>
+                <Link to="/login" className="mobile-nav-item" onClick={() => setMobileNavOpen(false)}>
+                  Institution Portal (Sign In / Register)
+                </Link>
+              </>
             )}
           </div>
 
@@ -303,7 +268,7 @@ export function AppSidebar({ mobileOpen, onClose }) {
           <NavItem to="/dashboard" label="Overview & Requests" icon="▦" />
         </nav>
         <div className="sidebar-footer">
-          <div className="chain-status"><span className="status-dot" /> Sepolia Connected</div>
+          <div className="chain-status"><span className="status-dot" /> Connected</div>
           <div className="sidebar-profile"><span className="profile-avatar">{initials}</span><span><strong>{institution?.name || "Institution admin"}</strong><small>{institution?.institutionId || "Account"}</small></span></div>
           <button className="sidebar-logout" onClick={() => {
             disconnectWallet();
@@ -333,10 +298,6 @@ export function AuthenticatedLayout({ children }) {
           <button className="mobile-menu-button" onClick={() => setMobileOpen(true)} aria-label="Open navigation">☰</button>
           <div className="breadcrumbs"><Link to="/dashboard">Workspace</Link><span>/</span><strong>{pageTitle}</strong></div>
           <div className="workspace-header-actions">
-            <span className="header-network" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-              <span className="status-dot" style={{ background: "#22c55e" }} />
-              Sepolia (11155111)
-            </span>
             <ThemeToggle />
           </div>
         </header>

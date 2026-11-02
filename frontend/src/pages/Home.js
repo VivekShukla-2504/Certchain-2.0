@@ -7,29 +7,6 @@ const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
 export default function Home() {
   return (
     <main className="home-page" style={{ maxWidth: 1120, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
-      {/* Live Blockchain Protocol Banner */}
-      <div style={{ background: "linear-gradient(90deg, #0f172a 0%, #1e293b 100%)", borderRadius: 10, padding: "0.75rem 1.25rem", color: "#f8fafc", marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", border: "1px solid #334155" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", fontSize: "0.85rem" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#166534", color: "#dcfce7", padding: "2px 8px", borderRadius: "9999px", fontWeight: 700, fontSize: "0.75rem" }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} />
-            LIVE ON SEPOLIA (EIP-155: 11155111)
-          </span>
-          <span style={{ color: "#cbd5e1" }}>Proof-of-Stake Consensus (Gasper)</span>
-          <span style={{ color: "#64748b" }}>|</span>
-          <span style={{ color: "#cbd5e1" }}>Decentralized IPFS Storage</span>
-          <span style={{ color: "#64748b" }}>|</span>
-          <span style={{ color: "#cbd5e1" }}>W3C Verifiable Credentials Standard</span>
-        </div>
-        <a
-          href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#38bdf8", textDecoration: "none", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}
-        >
-          Contract: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-4)} ↗
-        </a>
-      </div>
-
       {/* Hero Section */}
       <section className="home-hero">
         <div className="home-hero-copy">
@@ -47,9 +24,6 @@ export default function Home() {
             </Link>
             <Link className="button button-secondary" to="/dashboard" style={{ fontWeight: 600 }}>
               Institution Dashboard
-            </Link>
-            <Link className="button button-secondary" to="/keys" style={{ fontWeight: 600 }}>
-              Sepolia Architecture
             </Link>
           </div>
           <p className="home-note">Zero centralized dependencies — authenticated on-chain via OpenZeppelin AccessControl smart contracts.</p>

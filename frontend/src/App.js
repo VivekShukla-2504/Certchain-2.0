@@ -15,23 +15,53 @@ import NotFound from "./pages/NotFound";
 import { AuthenticatedLayout, PublicHeader } from "./components/Layout";
 import { ThemeContext } from "./components/UI";
 
-function isInstitutionLoggedIn() {
+function getActiveRole() {
   const token = localStorage.getItem("certchain_token");
   const role = localStorage.getItem("certchain_role");
-  const hasInst = !!localStorage.getItem("certchain_institution");
-  return !!token && (role === "institution" || role === "admin" || role === "issuer" || (hasInst && role !== "employer" && role !== "student"));
+  const inst = localStorage.getItem("certchain_institution");
+  const student = localStorage.getItem("certchain_student");
+  const empWallet = localStorage.getItem("certchain_employer_wallet");
+
+  if (token && (role === "institution" || role === "admin" || role === "issuer" || (inst && role !== "employer" && role !== "student"))) {
+    return "institute";
+  }
+  if (role === "employer" || (empWallet && role !== "student" && role !== "institution")) {
+    return "employer";
+  }
+  if (role === "student" || (student && role !== "employer" && role !== "institution")) {
+    return "student";
+  }
+  return "guest";
 }
 
-function PrivateRoute({ children }) {
-  return isInstitutionLoggedIn() ? children : <Navigate to="/login" replace />;
+function InstitutionRoute({ children }) {
+  const role = getActiveRole();
+  if (role === "institute") return children;
+  if (role === "employer") return <Navigate to="/verify" replace />;
+  if (role === "student") return <Navigate to="/student" replace />;
+  return <Navigate to="/login" replace />;
 }
 
-function VerifyRoute() {
-  return <><PublicHeader /><Verify /></>;
+function EmployerRoute({ children }) {
+  const role = getActiveRole();
+  if (role === "institute") return <Navigate to="/dashboard" replace />;
+  if (role === "student") return <Navigate to="/student" replace />;
+  return children;
 }
 
-function PublicCertificateRoute() {
-  return <><PublicHeader /><Verify /></>;
+function StudentRoute({ children }) {
+  const role = getActiveRole();
+  if (role === "institute") return <Navigate to="/dashboard" replace />;
+  if (role === "employer") return <Navigate to="/verify" replace />;
+  return children;
+}
+
+function PublicAuthRoute({ children }) {
+  const role = getActiveRole();
+  if (role === "institute") return <Navigate to="/dashboard" replace />;
+  if (role === "employer") return <Navigate to="/verify" replace />;
+  if (role === "student") return <Navigate to="/student" replace />;
+  return children;
 }
 
 export default function App() {
@@ -47,54 +77,56 @@ export default function App() {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div className="app-shell">
           <Routes>
-            {/* Landing & Public Navigation */}
+            {/* Landing */}
             <Route path="/" element={<><PublicHeader /><Home /></>} />
-            <Route path="/login" element={<><PublicHeader /><Login /></>} />
-            <Route path="/signup" element={<><PublicHeader /><Signup /></>} />
-            <Route path="/forgot-password" element={<><PublicHeader /><ForgotPassword /></>} />
+
+            {/* Public Auth / Onboarding (Redirects to active workspace if already authenticated) */}
+            <Route path="/login" element={<PublicAuthRoute><PublicHeader /><Login /></PublicAuthRoute>} />
+            <Route path="/signup" element={<PublicAuthRoute><PublicHeader /><Signup /></PublicAuthRoute>} />
+            <Route path="/forgot-password" element={<PublicAuthRoute><PublicHeader /><ForgotPassword /></PublicAuthRoute>} />
 
             {/* Stakeholder 2: Employer Verification */}
-            <Route path="/verify" element={<VerifyRoute />} />
-            <Route path="/verify/:certificateId" element={<PublicCertificateRoute />} />
-            <Route path="/employer" element={<VerifyRoute />} />
+            <Route path="/verify" element={<EmployerRoute><PublicHeader /><Verify /></EmployerRoute>} />
+            <Route path="/verify/:certificateId" element={<EmployerRoute><PublicHeader /><Verify /></EmployerRoute>} />
+            <Route path="/employer" element={<EmployerRoute><PublicHeader /><Verify /></EmployerRoute>} />
 
             {/* Stakeholder 3: Student Credential Vault */}
-            <Route path="/student" element={<><PublicHeader /><StudentPortal /></>} />
+            <Route path="/student" element={<StudentRoute><PublicHeader /><StudentPortal /></StudentRoute>} />
 
-            {/* Ethereum Sepolia Cryptographic Keys Explorer */}
-            <Route path="/keys" element={<><PublicHeader /><KeyGenerator /></>} />
+            {/* Keys route removed - redirect to home */}
+            <Route path="/keys" element={<Navigate to="/" replace />} />
 
             {/* Stakeholder 1: Institution Workspace */}
             <Route
               path="/dashboard"
               element={
-                <PrivateRoute>
+                <InstitutionRoute>
                   <AuthenticatedLayout><Dashboard /></AuthenticatedLayout>
-                </PrivateRoute>
+                </InstitutionRoute>
               }
             />
             <Route
               path="/issue"
               element={
-                <PrivateRoute>
+                <InstitutionRoute>
                   <AuthenticatedLayout><Issue /></AuthenticatedLayout>
-                </PrivateRoute>
+                </InstitutionRoute>
               }
             />
             <Route
               path="/certificates"
               element={
-                <PrivateRoute>
+                <InstitutionRoute>
                   <AuthenticatedLayout><Certificates /></AuthenticatedLayout>
-                </PrivateRoute>
+                </InstitutionRoute>
               }
             />
             <Route
               path="/certificates/:certId"
               element={
-                <PrivateRoute>
+                <InstitutionRoute>
                   <AuthenticatedLayout><CertificateDetails /></AuthenticatedLayout>
-                </PrivateRoute>
+                </InstitutionRoute>
               }
             />
 

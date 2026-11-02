@@ -482,9 +482,6 @@ export default function Dashboard() {
             <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
               Authorized Wallet
             </span>
-            <span style={{ fontSize: "0.75rem", background: isSepolia ? "#dcfce7" : "#fee2e2", color: isSepolia ? "#166534" : "#991b1b", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>
-              {isSepolia ? `Sepolia (${SEPOLIA_CHAIN_ID_DEC})` : "Switch to Sepolia"}
-            </span>
           </div>
 
           {walletAddress ? (

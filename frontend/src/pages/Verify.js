@@ -348,53 +348,6 @@ export default function Verify() {
     setPolling(false);
   }
 
-  function downloadW3cVerifiableCredential() {
-    if (!approvedDetails) return;
-    const vcPayload = {
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://purl.imsglobal.org/spec/ob/v3p0/context.json"
-      ],
-      "id": `urn:uuid:${certId}`,
-      "type": ["VerifiableCredential", "AcademicDegreeCredential"],
-      "issuer": {
-        "id": `did:ethr:sepolia:${approvedDetails.issuerWallet || approvedDetails.institutionId}`,
-        "name": approvedDetails.institutionId || "Authorized Academic Institution"
-      },
-      "issuanceDate": approvedDetails.issuedAt || new Date().toISOString(),
-      "credentialSubject": {
-        "id": `did:ethr:sepolia:${approvedDetails.studentWallet || "sovereign-student"}`,
-        "name": approvedDetails.certificate?.candidateName || "Verified Graduate",
-        "rollNumber": approvedDetails.certificate?.rollNumber || "N/A",
-        "degree": approvedDetails.certificate?.course || "Academic Credential",
-        "grade": approvedDetails.certificate?.grade || "Verified On-Chain"
-      },
-      "evidence": [
-        {
-          "type": "EthereumSepoliaAnchor",
-          "contractAddress": CONTRACT_ADDRESS,
-          "transactionHash": approvedDetails.txHash || "0xConfirmedOnSepolia",
-          "documentSha256": approvedDetails.certHash || "0xConfirmed",
-          "ipfsCid": approvedDetails.ipfsCid || "None"
-        }
-      ],
-      "proof": {
-        "type": "EcdsaSecp256k1Signature2019",
-        "created": new Date().toISOString(),
-        "verificationMethod": `did:ethr:sepolia:${CONTRACT_ADDRESS}#controller`,
-        "proofPurpose": "assertionMethod"
-      }
-    };
-
-    const blob = new Blob([JSON.stringify(vcPayload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${certId}_W3C_VerifiableCredential.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   async function handleDirectEvmVerify() {
     const normalized = certId.trim().toUpperCase();
     if (!normalized) {
@@ -467,94 +420,11 @@ export default function Verify() {
 
   return (
     <div className="page public-verify-page" style={{ maxWidth: 1040, margin: "0 auto", padding: "2rem 1rem" }}>
-      {/* Header Banner */}
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem", marginBottom: "1.75rem" }}>
-        <div>
-          <span className="eyebrow">Enterprise Verifier Workspace</span>
-          <h1 style={{ margin: "0.25rem 0" }}>Employer Verification Portal</h1>
-          <p className="lead" style={{ margin: 0 }}>
-            Independently verify academic credentials, inspect on-chain hashes, and detect document tampering using <strong>Ethereum Sepolia</strong>.
-          </p>
-        </div>
-
-        {/* Employer Web3 Status Badge */}
-        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "var(--cc-cloud)", borderColor: "var(--cc-line)", minWidth: 280 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
-              Employer Wallet
-            </span>
-            <span style={{ fontSize: "0.75rem", background: isSepolia ? "#dcfce7" : "#fee2e2", color: isSepolia ? "#166534" : "#991b1b", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>
-              {isSepolia ? `Sepolia (${SEPOLIA_CHAIN_ID_DEC})` : "Sepolia"}
-            </span>
-          </div>
-
-          {employerWallet ? (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.4rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
-                  <a
-                    href={`https://sepolia.etherscan.io/address/${employerWallet}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
-                  >
-                    {employerWallet.slice(0, 8)}...{employerWallet.slice(-6)} ↗
-                  </a>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleEmployerLogout}
-                  style={{
-                    background: "transparent",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    color: "#ef4444",
-                    fontSize: "0.75rem",
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    fontWeight: 600
-                  }}
-                  title="Sign out of employer session"
-                >
-                  Sign Out ⎋
-                </button>
-              </div>
-
-              {!isEmployerAuthenticated ? (
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={handleSignInWithEmployerWallet}
-                  disabled={connectingWallet}
-                  style={{ fontSize: "0.75rem", padding: "3px 8px", width: "100%", marginTop: "4px", borderColor: "#3b82f6", color: "#3b82f6" }}
-                >
-                  {connectingWallet ? "Signing with MetaMask..." : "🦊 Sign In with Web3 Signature"}
-                </button>
-              ) : (
-                <span style={{ fontSize: "0.72rem", color: "#10b981", display: "block", marginTop: "2px", fontWeight: 600 }}>
-                  ✓ Web3 Verified Recruiter Session
-                </span>
-              )}
-            </div>
-          ) : (
-            <Button
-              variant="secondary"
-              onClick={handleSignInWithEmployerWallet}
-              loading={connectingWallet}
-              style={{ fontSize: "0.8rem", padding: "0.35rem 0.6rem", width: "100%" }}
-            >
-              🦊 Sign In with MetaMask
-            </Button>
-          )}
-        </div>
-      </div>
-
       {!isEmployerAuthenticated ? (
         <div
           className="card card-pad text-center"
           style={{
-            margin: "2rem auto",
+            margin: "3rem auto",
             maxWidth: 620,
             padding: "3.5rem 2rem",
             borderTop: "4px solid #2563eb",
@@ -569,7 +439,7 @@ export default function Verify() {
             Employer Web3 Signature Required
           </h2>
           <p style={{ color: "#64748b", fontSize: "0.95rem", lineHeight: 1.6, maxWidth: 500, margin: "0 auto 2rem" }}>
-            To safeguard student privacy and verify credential authenticity on <strong>Ethereum Sepolia</strong>, employers and recruiters must sign in using their Web3 wallet.
+            To safeguard student privacy and verify credential authenticity, employers and recruiters must sign in using their Web3 wallet.
           </p>
 
           <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
@@ -579,7 +449,7 @@ export default function Verify() {
               loading={connectingWallet}
               style={{ fontSize: "1rem", padding: "0.75rem 1.75rem" }}
             >
-              🦊 Sign In with MetaMask (Sepolia)
+              🦊 Sign In with MetaMask
             </Button>
           </div>
 
@@ -601,12 +471,70 @@ export default function Verify() {
             <span style={{ fontSize: "1.4rem" }}>🛡️</span>
             <div>
               <strong style={{ color: "var(--cc-ink)" }}>Gasless Cryptographic Authentication:</strong>
-              <div>Signature is verified off-chain via EIP-191 / EIP-712. No Sepolia ETH gas fees are incurred.</div>
+              <div>Signature is verified off-chain via EIP-191 / EIP-712. Zero gas fees are incurred.</div>
             </div>
           </div>
         </div>
       ) : (
         <>
+          {/* Header Banner */}
+          <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem", marginBottom: "1.75rem" }}>
+            <div>
+              <span className="eyebrow">Enterprise Verifier Workspace</span>
+              <h1 style={{ margin: "0.25rem 0" }}>Employer Verification Portal</h1>
+              <p className="lead" style={{ margin: 0 }}>
+                Independently verify academic credentials, inspect on-chain hashes, and detect document tampering.
+              </p>
+            </div>
+
+            {/* Employer Web3 Status Badge */}
+            <div className="card" style={{ padding: "0.75rem 1.25rem", background: "var(--cc-cloud)", borderColor: "var(--cc-line)", minWidth: 280 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                  Employer Wallet
+                </span>
+              </div>
+
+              {employerWallet ? (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
+                      <a
+                        href={`https://sepolia.etherscan.io/address/${employerWallet}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
+                      >
+                        {employerWallet.slice(0, 8)}...{employerWallet.slice(-6)} ↗
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleEmployerLogout}
+                      style={{
+                        background: "transparent",
+                        border: "1px solid rgba(239, 68, 68, 0.4)",
+                        color: "#ef4444",
+                        fontSize: "0.75rem",
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        fontWeight: 600
+                      }}
+                      title="Sign out of employer session"
+                    >
+                      Sign Out ⎋
+                    </button>
+                  </div>
+                  <span style={{ fontSize: "0.72rem", color: "#10b981", display: "block", marginTop: "2px", fontWeight: 600 }}>
+                    ✓ Web3 Verified Recruiter Session
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           {/* Navigation Tabs */}
           <nav className="dashboard-nav-tabs" aria-label="Employer views">
             <button
@@ -629,13 +557,6 @@ export default function Verify() {
               onClick={() => setActiveTab("requests")}
             >
               Confidential Verification History ({employerRequests.length})
-            </button>
-            <button
-              type="button"
-              className={`dashboard-nav-tab ${activeTab === "wallet" ? "active" : ""}`}
-              onClick={() => setActiveTab("wallet")}
-            >
-              Organization Identity & Keys
             </button>
           </nav>
 
@@ -881,15 +802,6 @@ export default function Verify() {
                   </div>
 
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                    <a
-                      href={`${API_ORIGIN}/api/certificates/${encodeURIComponent(certId)}/download-student`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="button button-primary"
-                      style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", background: "var(--cc-green)", borderColor: "var(--cc-green)" }}
-                    >
-                      📥 Download Verified Student Record (PDF)
-                    </a>
                     <button
                       type="button"
                       className="button"
@@ -898,26 +810,6 @@ export default function Verify() {
                     >
                       Audit Receipt
                     </button>
-                    <button
-                      type="button"
-                      className="button button-secondary"
-                      onClick={downloadW3cVerifiableCredential}
-                      style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", color: "#059669", fontWeight: 600 }}
-                      title="Download international W3C Verifiable Credential standard (JSON-LD)"
-                    >
-                      Export W3C JSON-LD
-                    </button>
-                    {approvedDetails.ipfsCid && (
-                      <a
-                        href={`https://gateway.pinata.cloud/ipfs/${approvedDetails.ipfsCid}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="button button-secondary"
-                        style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", color: "#7c3aed", fontWeight: 600 }}
-                      >
-                        IPFS Gateway ↗
-                      </a>
-                    )}
                     <button
                       type="button"
                       className="button button-secondary"
@@ -936,15 +828,6 @@ export default function Verify() {
                       <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--cc-ink)" }}>
                         🎓 Candidate Academic Record
                       </h3>
-                      <a
-                        href={`${API_ORIGIN}/api/certificates/${encodeURIComponent(certId)}/download-student`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="button button-secondary"
-                        style={{ fontSize: "0.8rem", padding: "0.25rem 0.65rem", color: "#2563eb", borderColor: "#3b82f6" }}
-                      >
-                        📥 Download Official Student Document
-                      </a>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "1rem" }}>
                       <div>

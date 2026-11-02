@@ -131,6 +131,7 @@ export default function Dashboard() {
   const [revocationReason, setRevocationReason] = useState("Administrative error or qualification retracted");
   const [revokingStatus, setRevokingStatus] = useState("idle"); // idle | signing | confirmed | error
   const [revocationResult, setRevocationResult] = useState(null);
+  const [revocationError, setRevocationError] = useState("");
 
   // Employer Approvals State
   const [approvingId, setApprovingId] = useState("");
@@ -375,6 +376,7 @@ export default function Dashboard() {
     e.preventDefault();
     if (!revokingCert) return;
 
+    setRevocationError("");
     setRevokingStatus("signing");
     try {
       const res = await api.post(`/certificates/${encodeURIComponent(revokingCert.certId)}/revoke`, {
@@ -390,7 +392,9 @@ export default function Dashboard() {
       setData(refreshed.data);
     } catch (err) {
       setRevokingStatus("error");
-      alert("Revocation failed: " + (err.response?.data?.message || err.message));
+      const errorMsg = err.response?.data?.message || err.message || "Failed to revoke certificate on Sepolia";
+      setRevocationError(errorMsg);
+      alert("Revocation failed: " + errorMsg);
     }
   }
 
@@ -1249,6 +1253,12 @@ export default function Dashboard() {
             </div>
           ) : (
             <div>
+              {revocationError && (
+                <div style={{ marginBottom: "1rem" }}>
+                  <Alert>{revocationError}</Alert>
+                </div>
+              )}
+
               {/* Select Certificate to Revoke */}
               <div style={{ marginBottom: "1.25rem" }}>
                 <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem" }}>

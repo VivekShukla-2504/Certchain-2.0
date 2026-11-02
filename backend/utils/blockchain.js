@@ -126,7 +126,32 @@ async function getStudentCertificatesOnChain(studentWallet) {
   return Array.from(certIds);
 }
 
-async function revokeOnChain(certId) {
+async function revokeOnChain(certId, certHashHex = null, institutionId = null, studentWallet = null) {
+  let record = null;
+  try {
+    record = await getRecordOnChain(certId);
+  } catch (e) {
+    // Record might not exist on-chain yet
+  }
+
+  // 1. If already marked revoked on-chain, treat as successfully confirmed
+  if (record && record.revoked) {
+    return {
+      txHash: "0xAlreadyRevokedOnSepolia",
+      blockNumber: null,
+      alreadyRevoked: true
+    };
+  }
+
+  // 2. If certificate is not yet recorded in contract storage (issuedAt === 0), anchor it first so it exists
+  if (!record || record.issuedAt === 0) {
+    if (certHashHex) {
+      console.log(`[CertChain Blockchain] Anchoring unrecorded certificate ${certId} to Sepolia prior to revocation...`);
+      await issueOnChain(certId, certHashHex, institutionId, studentWallet, "");
+    }
+  }
+
+  // 3. Execute on-chain revocation on smart contract
   const tx = await contract.revokeCertificate(certId);
   const receipt = await tx.wait();
   return {

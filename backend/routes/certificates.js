@@ -476,11 +476,12 @@ router.get("/:certId", requireAuth, async (req, res) => {
 // POST /api/certificates/:certId/revoke
 router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), async (req, res) => {
   try {
+    const rawId = (req.params.certId || "").trim();
     const cert = await Certificate.findOne({
-      certId: req.params.certId,
+      certId: { $regex: new RegExp("^" + escapeRegex(rawId) + "$", "i") },
       institutionId: req.institution.institutionId
     });
-    if (!cert) return res.status(404).json({ message: "Certificate not found" });
+    if (!cert) return res.status(404).json({ message: "Certificate not found under your institution" });
     if (cert.revoked) return res.status(400).json({ message: "Certificate is already revoked" });
 
     const reason = typeof req.body.reason === "string" && req.body.reason.trim()
@@ -495,7 +496,12 @@ router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), asyn
       revTxHash = verified.txHash;
       revBlockNumber = verified.blockNumber;
     } else {
-      const revResult = await revokeOnChain(cert.certId);
+      const revResult = await revokeOnChain(
+        cert.certId,
+        cert.documentHash || cert.certHash,
+        cert.institutionId,
+        cert.studentWallet
+      );
       revTxHash = typeof revResult === "object" ? revResult.txHash : revResult;
       revBlockNumber = typeof revResult === "object" ? revResult.blockNumber : null;
     }
@@ -538,7 +544,10 @@ router.post("/:certId/revoke", requireAuth, requireRole("admin", "issuer"), asyn
       revokedAt: cert.revokedAt
     });
   } catch (err) {
-    res.status(500).json({ message: "Revocation failed" });
+    console.error(`[CertChain Certificates] Revocation error for ${req.params.certId}:`, err);
+    res.status(500).json({
+      message: "Revocation failed: " + (err.reason || err.shortMessage || err.message || "Smart contract error")
+    });
   }
 });
 

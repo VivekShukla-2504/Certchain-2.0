@@ -167,6 +167,42 @@ async function isVerificationApprovedOnChain(certId, employerWallet = ethers.Zer
   }
 }
 
+/** Real-time on-chain event synchronization daemon */
+function initBlockchainEventListener() {
+  if (process.env.NODE_ENV === "test") return;
+  try {
+    if (!contract || !provider) return;
+    contract.on("CredentialIssued", async (certId, certHash, student, institute, issuedAt, event) => {
+      console.log(`[On-Chain Sync] CredentialIssued event detected for ${certId}`);
+      try {
+        const Certificate = require("../models/Certificate");
+        await Certificate.updateOne(
+          { certId },
+          { $set: { status: "confirmed", txHash: event?.log?.transactionHash || "" } }
+        );
+      } catch (e) {
+        // Safe silent sync
+      }
+    });
+
+    contract.on("CredentialRevoked", async (certId, revoker, event) => {
+      console.log(`[On-Chain Sync] CredentialRevoked event detected for ${certId}`);
+      try {
+        const Certificate = require("../models/Certificate");
+        await Certificate.updateOne(
+          { certId },
+          { $set: { revoked: true } }
+        );
+      } catch (e) {
+        // Safe silent sync
+      }
+    });
+    console.log("[Blockchain Listener] Subscribed to Sepolia CertificateRegistry events.");
+  } catch (err) {
+    console.warn("[Blockchain Listener] Could not attach real-time event listener:", err.message);
+  }
+}
+
 module.exports = {
   issueOnChain,
   verifyOnChain,
@@ -179,5 +215,6 @@ module.exports = {
   registerInstituteOnChain,
   revokeInstituteOnChain,
   isAuthorizedInstituteOnChain,
-  verifyClientTxOnChain
+  verifyClientTxOnChain,
+  initBlockchainEventListener
 };

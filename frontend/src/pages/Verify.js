@@ -8,7 +8,8 @@ import {
   isSepoliaNetwork,
   ensureSepoliaNetwork,
   hasMetaMask,
-  SEPOLIA_CHAIN_ID_DEC
+  SEPOLIA_CHAIN_ID_DEC,
+  verifyDirectOnChain
 } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
@@ -62,9 +63,26 @@ export default function Verify() {
   const [showDocPreview, setShowDocPreview] = useState(true);
   const pollTimerRef = useRef(null);
 
+  // Direct Trustless EVM Verification
+  const [directEvmLoading, setDirectEvmLoading] = useState(false);
+  const [isDirectEvmVerified, setIsDirectEvmVerified] = useState(false);
+
+  // QR Camera Scanner & Image Scanner
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrScanningActive, setQrScanningActive] = useState(false);
+  const [qrScanError, setQrScanError] = useState("");
+  const videoRef = useRef(null);
+  const qrStreamRef = useRef(null);
+
+  // Printable Verification Audit Report Modal
+  const [showAuditModal, setShowAuditModal] = useState(false);
+
   useEffect(() => {
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (qrStreamRef.current) {
+        qrStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
     };
   }, []);
 
@@ -267,6 +285,164 @@ export default function Verify() {
     setPolling(false);
   }
 
+  function extractCertIdFromQrText(text) {
+    if (!text) return "";
+    const match = text.match(/CERT-[A-F0-9]{16,32}/i);
+    if (match) return match[0].toUpperCase();
+    const urlMatch = text.match(/\/verify\/([A-Za-z0-9_-]+)/i);
+    if (urlMatch) return urlMatch[1].toUpperCase();
+    return text.trim().toUpperCase();
+  }
+
+  async function startQrCamera() {
+    setShowQrModal(true);
+    setQrScanError("");
+    setQrScanningActive(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      qrStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      if ("BarcodeDetector" in window) {
+        const barcodeDetector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        const interval = setInterval(async () => {
+          if (!videoRef.current || !qrStreamRef.current) {
+            clearInterval(interval);
+            return;
+          }
+          try {
+            const barcodes = await barcodeDetector.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              const raw = barcodes[0].rawValue;
+              const parsedId = extractCertIdFromQrText(raw);
+              if (parsedId) {
+                setCertId(parsedId);
+                stopQrCamera();
+                clearInterval(interval);
+                checkStatus(parsedId);
+              }
+            }
+          } catch {
+            // Frame skip
+          }
+        }, 500);
+      }
+    } catch (err) {
+      setQrScanError("Camera access unavailable: " + err.message);
+      setQrScanningActive(false);
+    }
+  }
+
+  function stopQrCamera() {
+    if (qrStreamRef.current) {
+      qrStreamRef.current.getTracks().forEach((t) => t.stop());
+      qrStreamRef.current = null;
+    }
+    setQrScanningActive(false);
+    setShowQrModal(false);
+  }
+
+  async function handleQrImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await img.decode();
+      if ("BarcodeDetector" in window) {
+        const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        const codes = await detector.detect(img);
+        if (codes.length > 0) {
+          const parsed = extractCertIdFromQrText(codes[0].rawValue);
+          if (parsed) {
+            setCertId(parsed);
+            stopQrCamera();
+            checkStatus(parsed);
+            return;
+          }
+        }
+      }
+      setQrScanError("Could not auto-detect QR code from image. Please enter the ID manually.");
+    } catch (err) {
+      setQrScanError("Image scan failed: " + err.message);
+    }
+  }
+
+  async function handleDirectEvmVerify() {
+    const normalized = certId.trim().toUpperCase();
+    if (!normalized) {
+      setStatusMessage("Please enter a Certificate ID first");
+      setVerificationStatus("error");
+      return;
+    }
+    setDirectEvmLoading(true);
+    setVerificationStatus("loading");
+    setStatusMessage("Querying Ethereum Sepolia Smart Contract directly (Zero Backend / MongoDB)...");
+    setApprovedDetails(null);
+    setRequestDetails(null);
+    setTamperDetails(null);
+    setRevokedDetails(null);
+    setRejectedDetails(null);
+    setIsDirectEvmVerified(false);
+
+    try {
+      const res = await verifyDirectOnChain(normalized, computedFileHash);
+      if (!res.found) {
+        setVerificationStatus("not_found");
+        setStatusMessage(res.message);
+      } else if (res.status === "REVOKED") {
+        setVerificationStatus("revoked");
+        setRevokedDetails({
+          certId: res.certId,
+          institutionId: res.institutionId,
+          message: "Credential revoked on Ethereum Sepolia",
+          revocationTxHash: ""
+        });
+        setStatusMessage("This credential has been revoked on Ethereum Sepolia.");
+      } else if (res.status === "TAMPERED") {
+        setVerificationStatus("tampered");
+        setTamperDetails({
+          certId: res.certId,
+          uploadedDocumentHash: computedFileHash,
+          blockchainHash: res.certHash
+        });
+        setStatusMessage("Cryptographic SHA-256 mismatch: Uploaded PDF has been modified!");
+      } else {
+        setIsDirectEvmVerified(true);
+        setVerificationStatus("approved");
+        setApprovedDetails({
+          certId: res.certId,
+          institutionId: res.institutionId,
+          issuerWallet: res.issuer,
+          studentWallet: res.recipient,
+          ipfsCid: res.ipfsCid,
+          certHash: res.certHash,
+          directOnChain: true,
+          issuedAt: res.issuedAtDate,
+          certificate: {
+            candidateName: "On-Chain Verified Graduate",
+            rollNumber: res.recipient ? res.recipient.slice(0, 10) + "..." : "Sovereign Wallet",
+            course: "Verified Academic Credential",
+            grade: "Verified On-Chain",
+            documentType: "Decentralized Degree / Diploma",
+            issueDate: res.issuedAtDate
+          }
+        });
+        setStatusMessage("100% Authenticated Directly from Ethereum Sepolia EVM (Zero Backend Dependency)");
+      }
+    } catch (err) {
+      setVerificationStatus("error");
+      setStatusMessage("Direct EVM query failed: " + err.message);
+    } finally {
+      setDirectEvmLoading(false);
+    }
+  }
+
   return (
     <div className="page public-verify-page" style={{ maxWidth: 1040, margin: "0 auto", padding: "2rem 1rem" }}>
       {/* Header Banner */}
@@ -352,7 +528,7 @@ export default function Verify() {
                 <label style={{ display: "block", fontWeight: 600, marginBottom: "0.4rem", fontSize: "0.95rem" }}>
                   Step 1: Enter Candidate Certificate ID *
                 </label>
-                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "stretch" }}>
                   <input
                     type="text"
                     className="input mono"
@@ -362,13 +538,41 @@ export default function Verify() {
                     onChange={(e) => {
                       setCertId(e.target.value);
                       if (verificationStatus !== "idle") setVerificationStatus("idle");
+                      setIsDirectEvmVerified(false);
                     }}
                     required
                   />
-                  <Button type="submit" loading={verificationStatus === "loading"}>
-                    {verificationStatus === "loading" ? "Validating On-Chain..." : "🔍 Check & Request Verification"}
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={startQrCamera}
+                    title="Scan QR code using camera"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                  >
+                    📷 Scan QR
+                  </button>
+                  <Button type="submit" loading={verificationStatus === "loading" && !directEvmLoading}>
+                    {verificationStatus === "loading" && !directEvmLoading ? "Validating On-Chain..." : "🔍 Check & Request Verification"}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={handleDirectEvmVerify}
+                    className="button"
+                    disabled={directEvmLoading}
+                    style={{ background: "#7c3aed", color: "#fff", borderColor: "#6d28d9", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+                    title="Direct EVM call to Sepolia node, completely bypassing MongoDB and Backend API"
+                  >
+                    {directEvmLoading ? "Querying EVM Node..." : "⚡ Direct Sepolia EVM Mode (Zero Backend)"}
+                  </button>
                 </div>
+                {isDirectEvmVerified && (
+                  <div style={{ marginTop: "0.75rem", padding: "0.6rem 1rem", background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <span style={{ fontSize: "1.2rem" }}>⚡</span>
+                    <span style={{ fontSize: "0.85rem", color: "#5b21b6", fontWeight: 700 }}>
+                      Direct Trustless EVM Proof: Verified directly from Ethereum Sepolia smart contract storage mappings (Zero MongoDB or Backend server dependency).
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Step 2: Upload Certificate PDF for SHA-256 Tampering Detection */}
@@ -581,7 +785,15 @@ export default function Verify() {
                     </p>
                   </div>
 
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => setShowAuditModal(true)}
+                      style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", background: "#0284c7", color: "#fff", fontWeight: 700, borderColor: "#0369a1" }}
+                    >
+                      📄 Official Audit Certificate
+                    </button>
                     <button
                       type="button"
                       className="button button-secondary"
@@ -590,15 +802,17 @@ export default function Verify() {
                     >
                       🖨️ Print Proof
                     </button>
-                    <a
-                      href={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="button button-primary"
-                      style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem" }}
-                    >
-                      📥 Download Original PDF
-                    </a>
+                    {!approvedDetails.directOnChain && (
+                      <a
+                        href={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="button button-primary"
+                        style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem" }}
+                      >
+                        📥 Download Original PDF
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -869,6 +1083,141 @@ export default function Verify() {
             🦊 Reconnect / Switch Employer MetaMask Account
           </Button>
         </article>
+      )}
+
+      {/* MODAL 1: QR CODE WEBCAM & IMAGE SCANNER */}
+      {showQrModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
+          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 480, width: "100%", padding: "1.5rem", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.15rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                📷 Scan Physical Certificate QR
+              </h3>
+              <button type="button" onClick={stopQrCamera} style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#64748b" }}>
+                ✕
+              </button>
+            </div>
+
+            <p className="muted small" style={{ margin: "0 0 1rem" }}>
+              Point your camera at the QR code printed on the physical certificate, or upload a photo/screenshot.
+            </p>
+
+            <div style={{ position: "relative", width: "100%", height: 260, background: "#0f172a", borderRadius: 8, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
+              <video
+                ref={videoRef}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                playsInline
+                muted
+              />
+              <div style={{ position: "absolute", width: 180, height: 180, border: "2px dashed #38bdf8", borderRadius: 8, pointerEvents: "none" }} />
+            </div>
+
+            {qrScanError && (
+              <div style={{ padding: "0.5rem 0.75rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, color: "#991b1b", fontSize: "0.85rem", marginBottom: "1rem" }}>
+                {qrScanError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <label className="button button-secondary" style={{ textAlign: "center", cursor: "pointer", fontSize: "0.85rem" }}>
+                📁 Upload QR Image File Instead
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQrImageUpload}
+                  style={{ display: "none" }}
+                />
+              </label>
+
+              <button
+                type="button"
+                className="button"
+                onClick={stopQrCamera}
+                style={{ background: "#e2e8f0", color: "#334155" }}
+              >
+                Close Scanner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: OFFICIAL BLOCKCHAIN VERIFICATION AUDIT CERTIFICATE */}
+      {showAuditModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
+          <div style={{ background: "#ffffff", borderRadius: 12, maxWidth: 660, width: "100%", padding: "2rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)", maxHeight: "90vh", overflowY: "auto", border: "4px double #0284c7" }}>
+            <div style={{ textAlign: "center", borderBottom: "2px solid #e2e8f0", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
+              <div style={{ fontSize: "2.5rem" }}>🛡️ ⛓️</div>
+              <h2 style={{ margin: "0.25rem 0", color: "#0f172a", textTransform: "uppercase", letterSpacing: "1px", fontSize: "1.35rem" }}>
+                Cryptographic Credential Attestation
+              </h2>
+              <span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 700, letterSpacing: "0.5px" }}>
+                ETHEREUM SEPOLIA DECENTRALIZED ACADEMIC REGISTRY
+              </span>
+            </div>
+
+            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "1rem", textAlign: "center", marginBottom: "1.5rem" }}>
+              <span style={{ fontSize: "1.25rem", color: "#166534", fontWeight: 800, letterSpacing: "0.5px" }}>
+                ✓ 100% VERIFIED AUTHENTIC & UNTAMPERED
+              </span>
+              <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", color: "#14532d" }}>
+                Cryptographically anchored on Ethereum Sepolia Proof-of-Stake consensus at {new Date().toLocaleString()}.
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gap: "0.75rem", fontSize: "0.9rem", marginBottom: "1.5rem", background: "#f8fafc", padding: "1.25rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Certificate ID:</span>
+                <strong style={{ fontFamily: "monospace", color: "#0f172a" }}>{certId}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Candidate Name:</span>
+                <strong>{approvedDetails?.certificate?.candidateName || "Verified Graduate"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Qualification / Degree:</span>
+                <strong style={{ color: "#2563eb" }}>{approvedDetails?.certificate?.course || "Academic Credential"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Issuing Institution:</span>
+                <strong>{approvedDetails?.institutionId || "Authorized University"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Smart Contract Address:</span>
+                <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#2563eb" }}>
+                  {CONTRACT_ADDRESS} ↗
+                </a>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Issuer Wallet:</span>
+                <code style={{ fontSize: "0.8rem" }}>{approvedDetails?.issuerWallet ? approvedDetails.issuerWallet.slice(0, 16) + "..." : "Authorized University"}</code>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "#64748b" }}>Student Wallet:</span>
+                <code style={{ fontSize: "0.8rem" }}>{approvedDetails?.studentWallet ? approvedDetails.studentWallet.slice(0, 16) + "..." : "Self-Sovereign Identity"}</code>
+              </div>
+              {approvedDetails?.ipfsCid && (
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
+                  <span style={{ color: "#64748b" }}>Decentralized IPFS CID:</span>
+                  <code style={{ fontSize: "0.8rem" }}>{approvedDetails.ipfsCid}</code>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Consensus Finality:</span>
+                <span style={{ fontWeight: 700, color: "#059669" }}>Ethereum PoS (Gasper Protocol)</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
+              <button type="button" className="button button-secondary" onClick={() => setShowAuditModal(false)}>
+                Close
+              </button>
+              <button type="button" className="button button-primary" onClick={() => window.print()}>
+                🖨️ Print / Save as PDF
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

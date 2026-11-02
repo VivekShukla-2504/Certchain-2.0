@@ -15,6 +15,7 @@ const studentRoutes = require("./routes/students");
 const auditRoutes = require("./routes/audit");
 const platformRoutes = require("./routes/platform");
 const { authLimiter, verifyLimiter, platformAdminLimiter } = require("./middleware/security");
+const { initBlockchainEventListener } = require("./utils/blockchain");
 
 const app = express();
 const configuredOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
@@ -109,6 +110,7 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB connected");
+    initBlockchainEventListener();
     app.listen(PORT, () => console.log(`CertChain Server running on http://localhost:${PORT}`));
   })
   .catch((err) => {

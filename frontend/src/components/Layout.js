@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Brand, Button, ThemeToggle } from "./UI";
-import { getConnectedWallet, connectMetaMaskWallet } from "../utils/web3";
+import { getConnectedWallet, connectMetaMaskWallet, disconnectWallet } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
 
@@ -26,7 +26,26 @@ export function PublicHeader() {
   const location = useLocation();
   const [walletAddress, setWalletAddress] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   const institution = getInstitution();
+  const student = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("certchain_student") || "null");
+    } catch {
+      return null;
+    }
+  })();
+  const role = localStorage.getItem("certchain_role");
+  const token = localStorage.getItem("certchain_token");
+  const isStudentAuth = (role === "student" || !!student) && !!token;
+  const isEmployerAuth = role === "employer" && !!token;
+  const isInstituteAuth = !!institution && !!token;
+  const isAuthenticated = isInstituteAuth || isStudentAuth || isEmployerAuth;
+
+  function handleLogout() {
+    disconnectWallet();
+    window.location.reload();
+  }
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -94,9 +113,18 @@ export function PublicHeader() {
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/keys" style={{ fontWeight: 600 }}>
           Architecture & Keys
         </NavLink>
-        {institution ? (
+
+        {isInstituteAuth ? (
           <Link to="/dashboard" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
-            Workspace ({institution.name?.slice(0, 10)}...)
+            🏛️ Workspace ({institution.name?.slice(0, 10)}...)
+          </Link>
+        ) : isStudentAuth ? (
+          <Link to="/student" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", borderColor: "#10b981", color: "#10b981" }}>
+            🎓 {student?.fullName ? student.fullName.slice(0, 12) : "Student Vault"}
+          </Link>
+        ) : isEmployerAuth ? (
+          <Link to="/verify" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", borderColor: "#3b82f6", color: "#3b82f6" }}>
+            💼 Employer Workspace
           </Link>
         ) : (
           <Link to="/login" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
@@ -120,6 +148,27 @@ export function PublicHeader() {
             onClick={handleConnect}
           >
             Connect Wallet
+          </button>
+        )}
+
+        {isAuthenticated && (
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleLogout}
+            style={{
+              padding: "0.32rem 0.65rem",
+              fontSize: "0.8rem",
+              color: "#ef4444",
+              borderColor: "rgba(239, 68, 68, 0.4)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4
+            }}
+            title="Sign out of CertChain"
+          >
+            Logout ⎋
           </button>
         )}
 
@@ -168,9 +217,17 @@ export function PublicHeader() {
             <NavLink to="/keys" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
               Sepolia Keys & Architecture
             </NavLink>
-            {institution ? (
+            {isInstituteAuth ? (
               <Link to="/dashboard" className="mobile-nav-item">
-                Institution Dashboard ({institution.name})
+                🏛️ Institution Dashboard ({institution.name})
+              </Link>
+            ) : isStudentAuth ? (
+              <Link to="/student" className="mobile-nav-item" style={{ color: "#10b981" }}>
+                🎓 Student Vault ({student?.fullName || "Verified"})
+              </Link>
+            ) : isEmployerAuth ? (
+              <Link to="/verify" className="mobile-nav-item" style={{ color: "#3b82f6" }}>
+                💼 Employer Portal (Verified)
               </Link>
             ) : (
               <Link to="/login" className="mobile-nav-item">
@@ -181,9 +238,20 @@ export function PublicHeader() {
 
           <div className="mobile-nav-footer">
             {walletAddress ? (
-              <div className="wallet-pill full-width" style={{ padding: "8px 12px" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", marginRight: 6 }} />
-                {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)} (Connected)
+              <div className="wallet-pill full-width" style={{ padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", marginRight: 6 }} />
+                  {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)}
+                </span>
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    style={{ background: "transparent", border: "none", color: "#ef4444", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}
+                  >
+                    Logout ⎋
+                  </button>
+                )}
               </div>
             ) : (
               <button

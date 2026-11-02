@@ -8,7 +8,9 @@ import {
   ensureSepoliaNetwork,
   hasMetaMask,
   SEPOLIA_CHAIN_ID_DEC,
-  getStudentCertificatesDirect
+  getStudentCertificatesDirect,
+  authenticateStakeholderWallet,
+  disconnectWallet
 } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
@@ -25,6 +27,19 @@ export default function StudentPortal() {
   const [selectedCert, setSelectedCert] = useState(null);
   const [searched, setSearched] = useState(false);
   const [sbtModalCert, setSbtModalCert] = useState(null);
+
+  // Registered Student Identity & Web3 Session State
+  const [studentProfile, setStudentProfile] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("certchain_student") || "null");
+    } catch {
+      return null;
+    }
+  });
+  const [isWalletAuthenticated, setIsWalletAuthenticated] = useState(() => {
+    return localStorage.getItem("certchain_role") === "student" && !!localStorage.getItem("certchain_token");
+  });
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     async function initWallet() {
@@ -50,12 +65,54 @@ export default function StudentPortal() {
     try {
       const res = await api.get(`/certificates/student/${encodeURIComponent(identifier.trim())}`);
       setCertificates(res.data.certificates || []);
+      if (res.data.student) {
+        setStudentProfile(res.data.student);
+        localStorage.setItem("certchain_student", JSON.stringify(res.data.student));
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load student credentials");
       setCertificates([]);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Web3 Cryptographic Wallet Authentication (Challenge -> MetaMask Signature -> JWT Session)
+  async function handleSignInWithWallet() {
+    setError("");
+    setSigningIn(true);
+    try {
+      await ensureSepoliaNetwork();
+      const auth = await authenticateStakeholderWallet("student");
+      localStorage.setItem("certchain_token", auth.token);
+      localStorage.setItem("certchain_role", "student");
+      localStorage.setItem("certchain_student_wallet", auth.walletAddress);
+
+      if (auth.student) {
+        localStorage.setItem("certchain_student", JSON.stringify(auth.student));
+        setStudentProfile(auth.student);
+      }
+
+      setWalletAddress(auth.walletAddress);
+      setIsWalletAuthenticated(true);
+      setIsSepolia(true);
+      setQuery(auth.walletAddress);
+      await loadCertificates(auth.walletAddress);
+    } catch (err) {
+      setError("Web3 Wallet Authentication failed: " + err.message);
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  function handleLogout() {
+    disconnectWallet();
+    setWalletAddress("");
+    setStudentProfile(null);
+    setIsWalletAuthenticated(false);
+    setCertificates([]);
+    setSearched(false);
+    setQuery("");
   }
 
   async function handleConnectMetaMask() {
@@ -161,24 +218,99 @@ export default function StudentPortal() {
           </div>
 
           {walletAddress ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
-              <a
-                href={`https://sepolia.etherscan.io/address/${walletAddress}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
-              >
-                {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)} ↗
-              </a>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${walletAddress}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)} ↗
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    color: "#ef4444",
+                    fontSize: "0.75rem",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                  title="Sign out of student wallet session"
+                >
+                  Sign Out ⎋
+                </button>
+              </div>
+
+              {!isWalletAuthenticated && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleSignInWithWallet}
+                  disabled={signingIn}
+                  style={{ fontSize: "0.75rem", padding: "3px 8px", width: "100%", marginTop: "4px", borderColor: "#10b981", color: "#10b981" }}
+                >
+                  {signingIn ? "Signing via MetaMask..." : "🦊 Sign In with Web3 Signature"}
+                </button>
+              )}
             </div>
           ) : (
-            <Button variant="secondary" onClick={handleConnectMetaMask} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", width: "100%" }}>
-              Connect Student Wallet
+            <Button
+              variant="secondary"
+              onClick={handleSignInWithWallet}
+              loading={signingIn}
+              style={{ fontSize: "0.8rem", padding: "0.35rem 0.6rem", width: "100%" }}
+            >
+              🦊 Sign In with MetaMask
             </Button>
           )}
         </div>
       </div>
+
+      {/* Registered Student Identity Banner */}
+      {studentProfile && (
+        <div
+          className="card"
+          style={{
+            padding: "1rem 1.25rem",
+            marginBottom: "1.5rem",
+            background: "rgba(16, 185, 129, 0.08)",
+            borderColor: "rgba(16, 185, 129, 0.3)",
+            borderRadius: 8
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "1.3rem" }}>🎓</span>
+                <h2 style={{ margin: 0, fontSize: "1.15rem" }}>{studentProfile.fullName}</h2>
+                <span className="badge badge-success" style={{ fontSize: "0.75rem" }}>Registered Student</span>
+              </div>
+              <p className="muted small" style={{ margin: "0.35rem 0 0" }}>
+                Enrollment / Roll No: <strong style={{ fontFamily: "monospace" }}>{studentProfile.enrollmentNumber}</strong> · Course: <strong>{studentProfile.course}</strong> · Department: <strong>{studentProfile.department}</strong> ({studentProfile.academicSession})
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <Button
+                variant="secondary"
+                onClick={handleLogout}
+                style={{ fontSize: "0.8rem", padding: "0.35rem 0.75rem", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)" }}
+                title="Sign out of student portal session"
+              >
+                Sign Out ⎋
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Query Bar */}
       <div className="card card-pad" style={{ marginBottom: "1.75rem" }}>

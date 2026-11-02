@@ -588,19 +588,75 @@ router.get("/student/:identifier", async (req, res) => {
     const safeId = cleanId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     let filter = { status: { $ne: "failed" } };
+    let studentInfo = null;
+
     if (cleanId.startsWith("0x")) {
-      filter.studentWallet = { $regex: new RegExp(`^${safeId}$`, "i") };
+      // Find if this wallet address belongs to a registered student profile
+      studentInfo = await Student.findOne({
+        walletAddress: { $regex: new RegExp(`^${safeId}$`, "i") }
+      }).lean();
+
+      if (studentInfo) {
+        const safeEnrollment = (studentInfo.enrollmentNumber || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const safeEmail = (studentInfo.email || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        filter.$or = [
+          { studentWallet: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          ...(safeEnrollment ? [{ rollNumber: { $regex: new RegExp(`^${safeEnrollment}$`, "i") } }] : []),
+          ...(safeEmail ? [{ studentEmail: { $regex: new RegExp(`^${safeEmail}$`, "i") } }] : [])
+        ];
+      } else {
+        filter.studentWallet = { $regex: new RegExp(`^${safeId}$`, "i") };
+      }
     } else {
-      filter.$or = [
-        { rollNumber: { $regex: new RegExp(`^${safeId}$`, "i") } },
-        { studentEmail: { $regex: new RegExp(`^${safeId}$`, "i") } },
-        { studentWallet: { $regex: new RegExp(`^${safeId}$`, "i") } }
-      ];
+      // Find if identifier matches enrollment number or email
+      studentInfo = await Student.findOne({
+        $or: [
+          { enrollmentNumber: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          { email: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          { username: { $regex: new RegExp(`^${safeId}$`, "i") } }
+        ]
+      }).lean();
+
+      if (studentInfo) {
+        const safeWallet = (studentInfo.walletAddress || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const safeEnrollment = (studentInfo.enrollmentNumber || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const safeEmail = (studentInfo.email || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        filter.$or = [
+          { rollNumber: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          { studentEmail: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          ...(safeEnrollment ? [{ rollNumber: { $regex: new RegExp(`^${safeEnrollment}$`, "i") } }] : []),
+          ...(safeWallet ? [{ studentWallet: { $regex: new RegExp(`^${safeWallet}$`, "i") } }] : []),
+          ...(safeEmail ? [{ studentEmail: { $regex: new RegExp(`^${safeEmail}$`, "i") } }] : [])
+        ];
+      } else {
+        filter.$or = [
+          { rollNumber: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          { studentEmail: { $regex: new RegExp(`^${safeId}$`, "i") } },
+          { studentWallet: { $regex: new RegExp(`^${safeId}$`, "i") } }
+        ];
+      }
     }
 
     const certificates = await Certificate.find(filter).sort({ createdAt: -1 }).lean();
-    res.json({ certificates });
+
+    res.json({
+      certificates,
+      student: studentInfo ? {
+        id: studentInfo._id,
+        fullName: studentInfo.fullName,
+        username: studentInfo.username,
+        email: studentInfo.email,
+        phone: studentInfo.phone,
+        enrollmentNumber: studentInfo.enrollmentNumber,
+        department: studentInfo.department,
+        course: studentInfo.course,
+        academicSession: studentInfo.academicSession,
+        walletAddress: studentInfo.walletAddress,
+        institutionId: studentInfo.institutionId
+      } : null
+    });
   } catch (error) {
+    console.error("[CertChain Certificates] student query error:", error);
     res.status(500).json({ message: "Could not fetch student certificates" });
   }
 });

@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { ethers } = require("ethers");
 const Institution = require("../models/Institution");
+const Student = require("../models/Student");
 const { readString } = require("../utils/validation");
 const { sendEmailMessage } = require("../utils/mailer");
 
@@ -226,7 +227,73 @@ router.post("/wallet-verify", async (req, res) => {
       });
     }
 
-    // Student or Employer Stakeholders (Self-sovereign Web3 Identity)
+    // Student Stakeholder (Self-sovereign Web3 Identity & Registered Student Profile)
+    if (role === "student") {
+      const studentRecord = await Student.findOne({
+        walletAddress: { $regex: new RegExp("^" + cleanWallet + "$", "i") }
+      }).lean();
+
+      const token = jwt.sign(
+        {
+          walletAddress: cleanWallet,
+          role: "student",
+          stakeholder: "student",
+          studentId: studentRecord?._id,
+          enrollmentNumber: studentRecord?.enrollmentNumber,
+          fullName: studentRecord?.fullName,
+          verifiedBySignature: true
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.json({
+        token,
+        verified: true,
+        stakeholder: "student",
+        walletAddress: cleanWallet,
+        student: studentRecord ? {
+          id: studentRecord._id,
+          fullName: studentRecord.fullName,
+          username: studentRecord.username,
+          email: studentRecord.email,
+          phone: studentRecord.phone,
+          enrollmentNumber: studentRecord.enrollmentNumber,
+          department: studentRecord.department,
+          course: studentRecord.course,
+          academicSession: studentRecord.academicSession,
+          walletAddress: studentRecord.walletAddress,
+          institutionId: studentRecord.institutionId
+        } : null,
+        message: studentRecord
+          ? `Welcome ${studentRecord.fullName}! Authenticated as registered student via Ethereum Sepolia cryptographic signature.`
+          : "Authenticated as Student via Ethereum Sepolia cryptographic signature."
+      });
+    }
+
+    // Employer Stakeholder (Self-sovereign Web3 Recruiter Identity)
+    if (role === "employer") {
+      const token = jwt.sign(
+        {
+          walletAddress: cleanWallet,
+          role: "employer",
+          stakeholder: "employer",
+          verifiedBySignature: true
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.json({
+        token,
+        verified: true,
+        stakeholder: "employer",
+        walletAddress: cleanWallet,
+        message: "Authenticated as Employer via Ethereum Sepolia cryptographic signature."
+      });
+    }
+
+    // Default Stakeholder Fallback
     const token = jwt.sign(
       {
         walletAddress: cleanWallet,

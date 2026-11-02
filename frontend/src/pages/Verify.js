@@ -9,7 +9,9 @@ import {
   ensureSepoliaNetwork,
   hasMetaMask,
   SEPOLIA_CHAIN_ID_DEC,
-  verifyDirectOnChain
+  verifyDirectOnChain,
+  authenticateStakeholderWallet,
+  disconnectWallet
 } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
@@ -37,6 +39,9 @@ export default function Verify() {
   const [employerWallet, setEmployerWallet] = useState("");
   const [isSepolia, setIsSepolia] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(false);
+  const [isEmployerAuthenticated, setIsEmployerAuthenticated] = useState(() => {
+    return localStorage.getItem("certchain_role") === "employer" && !!localStorage.getItem("certchain_token");
+  });
 
   // Search & Upload Input
   const [certId, setCertId] = useState("");
@@ -140,7 +145,7 @@ export default function Verify() {
     }
   }
 
-  // Connect MetaMask
+  // Connect MetaMask (Standard Web3 connection)
   async function handleConnectWallet() {
     setConnectingWallet(true);
     try {
@@ -153,6 +158,34 @@ export default function Verify() {
     } finally {
       setConnectingWallet(false);
     }
+  }
+
+  // Web3 Cryptographic Wallet Authentication for Recruiter Workspace
+  async function handleSignInWithEmployerWallet() {
+    setConnectingWallet(true);
+    try {
+      await ensureSepoliaNetwork();
+      const auth = await authenticateStakeholderWallet("employer");
+      localStorage.setItem("certchain_token", auth.token);
+      localStorage.setItem("certchain_role", "employer");
+      localStorage.setItem("certchain_employer_wallet", auth.walletAddress);
+
+      setEmployerWallet(auth.walletAddress);
+      setIsEmployerAuthenticated(true);
+      setIsSepolia(true);
+      fetchEmployerHistory();
+    } catch (err) {
+      alert("Employer Web3 Authentication failed: " + err.message);
+    } finally {
+      setConnectingWallet(false);
+    }
+  }
+
+  function handleEmployerLogout() {
+    disconnectWallet();
+    setEmployerWallet("");
+    setIsEmployerAuthenticated(false);
+    setEmployerRequests([]);
   }
 
   // Handle PDF file selection & SHA-256 calculation
@@ -535,20 +568,62 @@ export default function Verify() {
           </div>
 
           {employerWallet ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
-              <a
-                href={`https://sepolia.etherscan.io/address/${employerWallet}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
-              >
-                {employerWallet.slice(0, 10)}...{employerWallet.slice(-6)} ↗
-              </a>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${employerWallet}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    {employerWallet.slice(0, 8)}...{employerWallet.slice(-6)} ↗
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEmployerLogout}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    color: "#ef4444",
+                    fontSize: "0.75rem",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                  title="Sign out of employer session"
+                >
+                  Sign Out ⎋
+                </button>
+              </div>
+
+              {!isEmployerAuthenticated ? (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleSignInWithEmployerWallet}
+                  disabled={connectingWallet}
+                  style={{ fontSize: "0.75rem", padding: "3px 8px", width: "100%", marginTop: "4px", borderColor: "#3b82f6", color: "#3b82f6" }}
+                >
+                  {connectingWallet ? "Signing with MetaMask..." : "🦊 Sign In with Web3 Signature"}
+                </button>
+              ) : (
+                <span style={{ fontSize: "0.72rem", color: "#10b981", display: "block", marginTop: "2px", fontWeight: 600 }}>
+                  ✓ Web3 Verified Recruiter Session
+                </span>
+              )}
             </div>
           ) : (
-            <Button variant="secondary" onClick={handleConnectWallet} loading={connectingWallet} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", width: "100%" }}>
-              Connect Employer Wallet
+            <Button
+              variant="secondary"
+              onClick={handleSignInWithEmployerWallet}
+              loading={connectingWallet}
+              style={{ fontSize: "0.8rem", padding: "0.35rem 0.6rem", width: "100%" }}
+            >
+              🦊 Sign In with MetaMask
             </Button>
           )}
         </div>

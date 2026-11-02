@@ -364,7 +364,7 @@ export default function StudentPortal() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
                   <div>
                     <span className="eyebrow" style={{ color: "#2563eb" }}>
-                      {cert.institutionId} · {cert.documentType || "Degree"}
+                      {cert.institutionName || cert.institutionId} · {cert.documentType || "Degree"}
                     </span>
                     <h2 style={{ margin: "0.25rem 0 0", fontSize: "1.35rem" }}>{cert.course}</h2>
                     <p className="muted small" style={{ margin: 0 }}>
@@ -426,9 +426,14 @@ export default function StudentPortal() {
                   </div>
                   <div>
                     <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Issuing Authority</span>
-                    <span style={{ fontFamily: "monospace", color: "#2563eb" }}>
-                      {cert.issuerWallet ? cert.issuerWallet.slice(0, 10) + "..." : cert.institutionId}
-                    </span>
+                    <strong style={{ color: "var(--cc-blue)", fontSize: "0.95rem" }}>
+                      {cert.institutionName || cert.institutionId || "Authorized Academic Institution"}
+                    </strong>
+                    {cert.issuerWallet && (
+                      <small style={{ display: "block", fontFamily: "monospace", color: "var(--cc-subtle)", fontSize: "0.72rem" }}>
+                        Wallet: {cert.issuerWallet.slice(0, 8)}...{cert.issuerWallet.slice(-6)}
+                      </small>
+                    )}
                   </div>
                   <div>
                     <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Blockchain Transaction</span>

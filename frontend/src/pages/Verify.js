@@ -718,7 +718,7 @@ export default function Verify() {
                     </span>
                   </div>
                   <p style={{ color: "#7f1d1d", margin: "0.5rem 0 1rem", fontSize: "0.95rem" }}>
-                    Certificate <strong>{certId}</strong> has been revoked by issuing authority <strong>{revokedDetails?.institutionId || "the University"}</strong>.
+                    Certificate <strong>{certId}</strong> has been revoked by issuing authority <strong>{revokedDetails?.institutionName || revokedDetails?.institutionId || "the Academic Authority"}</strong>.
                   </p>
                   {revokedDetails?.revocationTxHash && (
                     <div style={{ fontSize: "0.85rem" }}>
@@ -770,7 +770,7 @@ export default function Verify() {
                     </span>
                   </div>
                   <p style={{ color: "#78350f", margin: "0.5rem 0 1rem", fontSize: "0.95rem" }}>
-                    Certificate <strong>{certId}</strong> was located in the blockchain registry. The issuing institution (<strong>{requestDetails?.institutionId || "University"}</strong>) has been notified to verify candidate identity and approve record disclosure.
+                    Certificate <strong>{certId}</strong> was located in the blockchain registry. The issuing institution (<strong>{requestDetails?.institutionName || requestDetails?.institutionId || "Academic Institution"}</strong>) has been notified to verify candidate identity and approve record disclosure.
                   </p>
                   <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
                     <span style={{ color: "#059669", fontWeight: 600, fontSize: "0.85rem" }}>
@@ -805,7 +805,7 @@ export default function Verify() {
                       Academic Credential Confirmed on Ethereum
                     </h2>
                     <p className="muted small" style={{ margin: 0 }}>
-                      Issued by <strong>{approvedDetails.institutionId}</strong> · Tamper-proof cryptographic record verified.
+                      Issued by <strong>{approvedDetails.institutionName || approvedDetails.institutionId}</strong> · Tamper-proof cryptographic record verified.
                     </p>
                   </div>
 
@@ -1191,8 +1191,8 @@ export default function Verify() {
                 <strong style={{ color: "var(--cc-blue)" }}>{approvedDetails?.certificate?.course || "Academic Credential"}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "var(--cc-subtle)" }}>Issuing Institution:</span>
-                <strong>{approvedDetails?.institutionId || "Authorized University"}</strong>
+                <span style={{ color: "var(--cc-subtle)" }}>Issuing Authority:</span>
+                <strong>{approvedDetails?.institutionName || approvedDetails?.institutionId || "Authorized Academic Institution"}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
                 <span style={{ color: "var(--cc-subtle)" }}>Smart Contract Address:</span>

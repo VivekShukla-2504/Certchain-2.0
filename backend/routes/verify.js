@@ -114,11 +114,13 @@ router.post("/request", receivePdf, async (req, res) => {
     const existingApproved = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
 
     if ((onChainApproved || existingApproved) && !isRevoked && tamperStatus !== "TAMPERED") {
+      const instRecord = await Institution.findOne({ institutionId: stored?.institutionId || onChainRecord?.institutionId }).select("name").lean();
       return res.json({
         approved: true,
         status: "approved",
         certId: normalizedId,
         institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        institutionName: instRecord?.name || stored?.institutionId || onChainRecord?.institutionId || "Authorized Academic Institution",
         tamperStatus,
         uploadedDocumentHash,
         message: "Certificate is verified and approved by the issuing institution on-chain."
@@ -185,6 +187,7 @@ router.post("/request", receivePdf, async (req, res) => {
       requestId: newRequest.requestId,
       certId: normalizedId,
       institutionId: newRequest.institutionId,
+      institutionName: institutionRecord?.name || newRequest.institutionId || "Authorized Academic Institution",
       candidateName: newRequest.candidateName,
       course: newRequest.course,
       tamperStatus,
@@ -228,6 +231,10 @@ router.get("/status/:certId", async (req, res) => {
       });
     }
 
+    const targetInstId = stored?.institutionId || onChainRecord?.institutionId;
+    const instDoc = targetInstId ? await Institution.findOne({ institutionId: targetInstId }).select("name").lean() : null;
+    const resolvedInstName = instDoc?.name || targetInstId || "Authorized Academic Institution";
+
     const isRevoked = Boolean(stored?.revoked || onChainRecord?.revoked);
     if (isRevoked) {
       return res.json({
@@ -236,7 +243,8 @@ router.get("/status/:certId", async (req, res) => {
         verified: false,
         revoked: true,
         certId: effectiveCertId,
-        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        institutionId: targetInstId,
+        institutionName: resolvedInstName,
         candidateName: stored?.candidateName || "Student",
         course: stored?.course || "Academic Credential",
         revocationTxHash: stored?.revocationTxHash || "",
@@ -286,13 +294,14 @@ router.get("/status/:certId", async (req, res) => {
         verified: true,
         revoked: false,
         certId: stored?.certId || normalizedId,
-        institutionId: stored?.institutionId || onChainRecord?.institutionId,
-        issuerWallet: onChainRecord.issuer || stored?.issuerWallet || stored?.institutionId,
+        institutionId: targetInstId,
+        institutionName: resolvedInstName,
+        issuerWallet: onChainRecord.issuer || stored?.issuerWallet || targetInstId,
         studentWallet: onChainRecord.recipient || stored?.studentWallet,
         ipfsCid: onChainRecord.ipfsCid || stored?.ipfsCid,
         issuedAt: onChainRecord.issuedAt ? new Date(onChainRecord.issuedAt * 1000).toISOString() : stored?.createdAt,
         approvedAt: callerRequest?.approvedAt || new Date().toISOString(),
-        approvedBy: callerRequest?.approvedBy || stored?.institutionId,
+        approvedBy: callerRequest?.approvedBy || targetInstId,
         txHash: callerRequest?.txHash || stored?.txHash || "",
         tamperStatus: callerRequest?.tamperStatus || "NOT_TAMPERED",
         blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",
@@ -314,7 +323,8 @@ router.get("/status/:certId", async (req, res) => {
         approved: false,
         status: "rejected",
         certId: normalizedId,
-        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        institutionId: targetInstId,
+        institutionName: resolvedInstName,
         candidateName: stored?.candidateName || "Student",
         rejectionReason: callerRequest.rejectionReason,
         message: "Your organization's verification request was reviewed and rejected by the issuing institution: " + (callerRequest.rejectionReason || "Reason unspecified.")
@@ -327,7 +337,8 @@ router.get("/status/:certId", async (req, res) => {
         approved: false,
         status: "pending",
         certId: stored?.certId || normalizedId,
-        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        institutionId: targetInstId,
+        institutionName: resolvedInstName,
         candidateName: stored?.candidateName || "Student",
         requestId: callerRequest.requestId,
         tamperStatus: callerRequest.tamperStatus || "NOT_CHECKED",
@@ -340,7 +351,8 @@ router.get("/status/:certId", async (req, res) => {
       approved: false,
       status: "unrequested",
       certId: stored?.certId || normalizedId,
-      institutionId: stored?.institutionId || onChainRecord?.institutionId,
+      institutionId: targetInstId,
+      institutionName: resolvedInstName,
       candidateName: stored?.candidateName || "Student",
       course: stored?.course || "Academic Credential",
       blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",

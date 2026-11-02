@@ -391,6 +391,26 @@ router.get("/", requireAuth, async (req, res) => {
 
     const matching = await Certificate.countDocuments(filter);
 
+    // Enrich certificates with student profile info (email, department, session, wallet)
+    const rollNumbers = [...new Set(certificates.map(c => c.rollNumber).filter(Boolean))];
+    const studentDocs = await Student.find({
+      institutionId: req.institution.institutionId,
+      enrollmentNumber: { $in: rollNumbers }
+    }).lean();
+    const studentMap = new Map(studentDocs.map(s => [s.enrollmentNumber, s]));
+
+    const enrichedCertificates = certificates.map(c => {
+      const studentInfo = studentMap.get(c.rollNumber);
+      return {
+        ...c,
+        institutionName: req.institution.name || c.institutionId,
+        studentEmail: c.studentEmail || studentInfo?.email || "",
+        department: c.department || studentInfo?.department || "",
+        academicSession: c.academicSession || studentInfo?.academicSession || "",
+        studentWallet: c.studentWallet || studentInfo?.walletAddress || ""
+      };
+    });
+
     res.json({
       stats: {
         total,
@@ -398,7 +418,7 @@ router.get("/", requireAuth, async (req, res) => {
         revoked,
         pending: null
       },
-      certificates,
+      certificates: enrichedCertificates,
       pendingAvailable: false,
       pagination: {
         page,
@@ -648,8 +668,18 @@ router.get("/student/:identifier", async (req, res) => {
 
     const certificates = await Certificate.find(filter).sort({ createdAt: -1 }).lean();
 
+    // Populate official Institution Names
+    const instIds = [...new Set(certificates.map(c => c.institutionId).filter(Boolean))];
+    const institutions = await Institution.find({ institutionId: { $in: instIds } }).select("institutionId name").lean();
+    const instMap = new Map(institutions.map(i => [i.institutionId, i.name]));
+
+    const enrichedCertificates = certificates.map(c => ({
+      ...c,
+      institutionName: instMap.get(c.institutionId) || c.institutionId
+    }));
+
     res.json({
-      certificates,
+      certificates: enrichedCertificates,
       student: studentInfo ? {
         id: studentInfo._id,
         fullName: studentInfo.fullName,

@@ -1153,13 +1153,43 @@ export default function Dashboard() {
                   {certificates.map((cert) => (
                     <tr key={cert.certId}>
                       <td data-label="Certificate ID">
-                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#2563eb" }}>
+                        <button
+                          type="button"
+                          onClick={() => setInspectingCert(cert)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            padding: 0,
+                            fontFamily: "monospace",
+                            fontWeight: 700,
+                            color: "#2563eb",
+                            cursor: "pointer",
+                            textDecoration: "underline"
+                          }}
+                          title="Click to view full student profile and credential verification record"
+                        >
                           {cert.certId}
-                        </span>
+                        </button>
                       </td>
                       <td data-label="Candidate">
-                        <strong>{cert.candidateName}</strong>
-                        <small>{cert.rollNumber}</small>
+                        <button
+                          type="button"
+                          onClick={() => setInspectingCert(cert)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            padding: 0,
+                            textAlign: "left",
+                            cursor: "pointer",
+                            display: "block"
+                          }}
+                          title="Click to inspect student and credential details"
+                        >
+                          <strong style={{ color: "#0f172a", textDecoration: "underline", display: "block" }}>
+                            {cert.candidateName}
+                          </strong>
+                          <small style={{ color: "var(--cc-muted)" }}>{cert.rollNumber}</small>
+                        </button>
                       </td>
                       <td data-label="Course">
                         <strong>{cert.course}</strong>
@@ -1699,7 +1729,7 @@ export default function Dashboard() {
                   {inspectingCert.revoked ? "⚠️ REVOKED ON SEPOLIA" : "✓ 100% VALID & ACTIVE ON SEPOLIA"}
                 </div>
               </div>
-              <span className="crypto-badge">Ethereum Sepolia (11155111)</span>
+              <span className="crypto-badge">Cryptographically Anchored</span>
             </div>
 
             {/* Candidate & Student Info */}

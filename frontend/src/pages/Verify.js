@@ -294,6 +294,53 @@ export default function Verify() {
     return text.trim().toUpperCase();
   }
 
+  function downloadW3cVerifiableCredential() {
+    if (!approvedDetails) return;
+    const vcPayload = {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://purl.imsglobal.org/spec/ob/v3p0/context.json"
+      ],
+      "id": `urn:uuid:${certId}`,
+      "type": ["VerifiableCredential", "AcademicDegreeCredential"],
+      "issuer": {
+        "id": `did:ethr:sepolia:${approvedDetails.issuerWallet || approvedDetails.institutionId}`,
+        "name": approvedDetails.institutionId || "Authorized Academic Institution"
+      },
+      "issuanceDate": approvedDetails.issuedAt || new Date().toISOString(),
+      "credentialSubject": {
+        "id": `did:ethr:sepolia:${approvedDetails.studentWallet || "sovereign-student"}`,
+        "name": approvedDetails.certificate?.candidateName || "Verified Graduate",
+        "rollNumber": approvedDetails.certificate?.rollNumber || "N/A",
+        "degree": approvedDetails.certificate?.course || "Academic Credential",
+        "grade": approvedDetails.certificate?.grade || "Verified On-Chain"
+      },
+      "evidence": [
+        {
+          "type": "EthereumSepoliaAnchor",
+          "contractAddress": CONTRACT_ADDRESS,
+          "transactionHash": approvedDetails.txHash || "0xConfirmedOnSepolia",
+          "documentSha256": approvedDetails.certHash || "0xConfirmed",
+          "ipfsCid": approvedDetails.ipfsCid || "None"
+        }
+      ],
+      "proof": {
+        "type": "EcdsaSecp256k1Signature2019",
+        "created": new Date().toISOString(),
+        "verificationMethod": `did:ethr:sepolia:${CONTRACT_ADDRESS}#controller`,
+        "proofPurpose": "assertionMethod"
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(vcPayload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${certId}_W3C_VerifiableCredential.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function startQrCamera() {
     setShowQrModal(true);
     setQrScanError("");
@@ -810,6 +857,26 @@ export default function Verify() {
                     >
                       📄 Official Audit Certificate
                     </button>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={downloadW3cVerifiableCredential}
+                      style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", color: "#059669", fontWeight: 600 }}
+                      title="Download international W3C Verifiable Credential standard (JSON-LD)"
+                    >
+                      🌐 W3C Credential (JSON-LD)
+                    </button>
+                    {approvedDetails.ipfsCid && (
+                      <a
+                        href={`https://gateway.pinata.cloud/ipfs/${approvedDetails.ipfsCid}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="button button-secondary"
+                        style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", color: "#7c3aed", fontWeight: 600 }}
+                      >
+                        📦 View on IPFS ↗
+                      </a>
+                    )}
                     <button
                       type="button"
                       className="button button-secondary"

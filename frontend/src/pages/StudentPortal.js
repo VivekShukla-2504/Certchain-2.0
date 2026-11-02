@@ -24,6 +24,7 @@ export default function StudentPortal() {
   const [copiedId, setCopiedId] = useState("");
   const [selectedCert, setSelectedCert] = useState(null);
   const [searched, setSearched] = useState(false);
+  const [sbtModalCert, setSbtModalCert] = useState(null);
 
   useEffect(() => {
     async function initWallet() {
@@ -431,6 +432,15 @@ export default function StudentPortal() {
                   >
                     {copiedId === `URL-${cert.certId}` ? "✓ Verification Link Copied!" : "🔗 Copy Verification Link"}
                   </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem", color: "#b45309", fontWeight: 700, borderColor: "#fde68a", background: "#fffbeb" }}
+                    onClick={() => setSbtModalCert(cert)}
+                    title="View ERC-5192 Non-Transferable Soulbound Token representation"
+                  >
+                    🎖️ View Soulbound Token (SBT)
+                  </button>
                 </div>
               </div>
             ))}
@@ -548,6 +558,74 @@ export default function StudentPortal() {
             🦊 Reconnect / Switch MetaMask Account
           </Button>
         </article>
+      )}
+
+      {/* SOULBOUND TOKEN (SBT) MODAL */}
+      {sbtModalCert && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
+          <div style={{ background: "linear-gradient(135deg, #090d16 0%, #111827 50%, #1e1b4b 100%)", borderRadius: 16, maxWidth: 520, width: "100%", padding: "2rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", border: "2px solid #eab308", color: "#f8fafc", position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setSbtModalCert(null)}
+              style={{ position: "absolute", top: "1rem", right: "1rem", background: "none", border: "none", color: "#94a3b8", fontSize: "1.25rem", cursor: "pointer" }}
+            >
+              ✕
+            </button>
+
+            <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+              <span style={{ display: "inline-block", background: "rgba(234, 179, 8, 0.15)", border: "1px solid #ca8a04", color: "#fef08a", padding: "4px 12px", borderRadius: "9999px", fontSize: "0.75rem", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase" }}>
+                ERC-5192 SOULBOUND TOKEN (NON-TRANSFERABLE)
+              </span>
+              <div style={{ fontSize: "3rem", margin: "0.75rem 0 0.25rem" }}>🎖️</div>
+              <h2 style={{ margin: "0.25rem 0", color: "#fef08a", fontSize: "1.4rem", letterSpacing: "0.5px" }}>
+                {sbtModalCert.course}
+              </h2>
+              <span style={{ fontSize: "0.85rem", color: "#93c5fd" }}>
+                {sbtModalCert.institutionId} · Academic Qualification
+              </span>
+            </div>
+
+            <div style={{ background: "rgba(15, 23, 42, 0.6)", borderRadius: 10, padding: "1.25rem", border: "1px solid rgba(255, 255, 255, 0.1)", marginBottom: "1.5rem", display: "grid", gap: "0.75rem", fontSize: "0.85rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.35rem" }}>
+                <span style={{ color: "#94a3b8" }}>Graduate Candidate:</span>
+                <strong style={{ color: "#ffffff" }}>{sbtModalCert.candidateName}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.35rem" }}>
+                <span style={{ color: "#94a3b8" }}>Roll / Enrollment:</span>
+                <strong style={{ fontFamily: "monospace", color: "#67e8f9" }}>{sbtModalCert.rollNumber}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.35rem" }}>
+                <span style={{ color: "#94a3b8" }}>Grade / CGPA:</span>
+                <strong style={{ color: "#4ade80" }}>{sbtModalCert.grade || "First Class"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.35rem" }}>
+                <span style={{ color: "#94a3b8" }}>Token ID:</span>
+                <strong style={{ fontFamily: "monospace", color: "#cbd5e1" }}>{sbtModalCert.certId}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#94a3b8" }}>Bound Student Key:</span>
+                <code style={{ fontSize: "0.75rem", color: "#38bdf8" }}>
+                  {sbtModalCert.studentWallet ? sbtModalCert.studentWallet.slice(0, 10) + "..." + sbtModalCert.studentWallet.slice(-6) : "Sovereign Identity"}
+                </code>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.75rem", color: "#94a3b8", textAlign: "center", margin: "0 0 1.25rem", lineHeight: 1.5 }}>
+              🔒 <strong>Non-Transferable Attestation:</strong> This Soulbound Token is mathematically locked to the recipient's private key. Transfer, sale, and tampering are permanently prohibited on Ethereum Sepolia.
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "center", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setSbtModalCert(null)}
+                style={{ width: "100%", background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }}
+              >
+                Close Badge
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

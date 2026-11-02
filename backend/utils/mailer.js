@@ -19,9 +19,9 @@ function getMailTransport() {
         user,
         pass: cleanPass
       },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 5000
     });
   }
 
@@ -36,9 +36,9 @@ function getMailTransport() {
       user,
       pass: cleanPass
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000
+    connectionTimeout: 4000,
+    greetingTimeout: 4000,
+    socketTimeout: 5000
   });
 }
 

@@ -400,7 +400,7 @@ export default function Dashboard() {
         </div>
 
         {/* Web3 Identity Box */}
-        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "#f8fafc", borderColor: "#cbd5e1", minWidth: 280 }}>
+        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "var(--cc-cloud)", borderColor: "var(--cc-line)", minWidth: 280 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
             <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
               Authorized Wallet
@@ -781,14 +781,14 @@ export default function Dashboard() {
           )}
 
           {issuedResult ? (
-            <div style={{ textAlign: "center", padding: "2rem 1rem", background: "#f8fafc", borderRadius: 8, border: "1px solid #cbd5e1" }}>
+            <div style={{ textAlign: "center", padding: "2rem 1rem", background: "var(--cc-cloud)", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
               <span style={{ fontSize: "2.5rem" }}>🎉</span>
               <h3 style={{ margin: "0.5rem 0" }}>Certificate Successfully Confirmed on Ethereum Sepolia!</h3>
               <p className="muted small" style={{ maxWidth: 550, margin: "0 auto 1.5rem" }}>
                 The SHA-256 hash was permanently anchored to smart contract <code>{CONTRACT_ADDRESS.slice(0, 10)}...</code>. An automated notification email with the Certificate ID and PDF attachment has been dispatched to <strong>{issuedResult.studentEmail || "student"}</strong>.
               </p>
 
-              <div style={{ display: "inline-flex", flexDirection: "column", gap: "0.5rem", background: "#fff", padding: "1rem 1.5rem", borderRadius: 8, border: "1px solid #e2e8f0", textAlign: "left", marginBottom: "1.5rem" }}>
+              <div style={{ display: "inline-flex", flexDirection: "column", gap: "0.5rem", background: "var(--cc-paper)", padding: "1rem 1.5rem", borderRadius: 8, border: "1px solid var(--cc-line)", textAlign: "left", marginBottom: "1.5rem" }}>
                 <div>
                   <span className="muted small">Certificate ID:</span>{" "}
                   <strong style={{ fontFamily: "monospace", color: "#2563eb" }}>{issuedResult.certId}</strong>
@@ -843,7 +843,7 @@ export default function Dashboard() {
                 </button>
               </div>
               {/* Step 1: Student Selection */}
-              <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--cc-cloud)", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                   <h4 style={{ margin: 0 }}>Step 1: Select Registered Student</h4>
                   {selectedStudent && (
@@ -858,7 +858,7 @@ export default function Dashboard() {
                 </div>
 
                 {selectedStudent ? (
-                  <div style={{ background: "#eff6ff", padding: "0.75rem", borderRadius: 6, border: "1px solid #bfdbfe" }}>
+                  <div style={{ background: "rgba(37, 99, 235, 0.08)", padding: "0.75rem", borderRadius: 6, border: "1px solid rgba(37, 99, 235, 0.2)" }}>
                     <div style={{ fontWeight: 600, color: "#1e40af" }}>✓ Selected: {selectedStudent.fullName} ({selectedStudent.enrollmentNumber})</div>
                     <div style={{ fontSize: "0.85rem", color: "#3b82f6" }}>
                       Course: {selectedStudent.course} · Wallet: {selectedStudent.walletAddress.slice(0, 12)}... · Email: {selectedStudent.email}
@@ -973,7 +973,7 @@ export default function Dashboard() {
               </div>
 
               {/* Step 3: PDF Upload & Cryptographic Hashing */}
-              <div style={{ marginBottom: "1.5rem", padding: "1.25rem", background: "#f8fafc", borderRadius: 8, border: "2px dashed #cbd5e1", textAlign: "center" }}>
+              <div style={{ marginBottom: "1.5rem", padding: "1.25rem", background: "var(--cc-cloud)", borderRadius: 8, border: "2px dashed var(--cc-line-strong)", textAlign: "center" }}>
                 <h4 style={{ margin: "0 0 0.5rem" }}>Step 2 & 3: Upload Certificate PDF & Generate SHA-256 Hash</h4>
                 <p className="muted small" style={{ margin: "0 0 1rem" }}>
                   Select the official certificate PDF. The system computes its cryptographic SHA-256 fingerprint.
@@ -1192,8 +1192,8 @@ export default function Dashboard() {
               </div>
 
               {revokingCert && (
-                <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: "1.25rem" }}>
-                  <h4 style={{ margin: "0 0 0.5rem", color: "#0f172a" }}>Target Certificate Details</h4>
+                <div style={{ background: "var(--cc-cloud)", padding: "1rem", borderRadius: 8, border: "1px solid var(--cc-line)", marginBottom: "1.25rem" }}>
+                  <h4 style={{ margin: "0 0 0.5rem", color: "var(--cc-ink)" }}>Target Certificate Details</h4>
                   <div style={{ fontSize: "0.85rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div><span className="muted">Candidate:</span> <strong>{revokingCert.candidateName}</strong></div>
                     <div><span className="muted">Roll Number:</span> <code>{revokingCert.rollNumber}</code></div>

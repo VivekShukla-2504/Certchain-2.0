@@ -97,14 +97,14 @@ export default function Home() {
           {/* Card 1: Student */}
           <div className="card card-pad" style={{ borderTop: "4px solid #2563eb", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "#eff6ff", color: "#2563eb", marginBottom: "0.75rem" }}>
+              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "rgba(37, 99, 235, 0.1)", color: "#2563eb", marginBottom: "0.75rem" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
               </div>
               <h3 style={{ margin: "0 0 0.5rem" }}>Student (Credential Owner)</h3>
               <p className="muted small" style={{ lineHeight: 1.6 }}>
                 Students enjoy <strong>Self-Sovereign Identity</strong>. Degrees are mapped directly to student wallet addresses on-chain (`studentCertificates[student]`), granting perpetual ownership without university hostage risks.
               </p>
-              <ul style={{ fontSize: "0.85rem", color: "#334155", paddingLeft: "1.25rem", margin: "1rem 0" }}>
+              <ul style={{ fontSize: "0.85rem", color: "var(--cc-muted)", paddingLeft: "1.25rem", margin: "1rem 0" }}>
                 <li>MetaMask wallet login via EIP-191 signed challenge</li>
                 <li>1-Click shareable verification URLs for recruiters</li>
                 <li>Download machine-readable W3C Verifiable Credentials</li>
@@ -118,14 +118,14 @@ export default function Home() {
           {/* Card 2: Institute */}
           <div className="card card-pad" style={{ borderTop: "4px solid #7c3aed", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "#f5f3ff", color: "#7c3aed", marginBottom: "0.75rem" }}>
+              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "rgba(124, 58, 237, 0.1)", color: "#7c3aed", marginBottom: "0.75rem" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M12 3l9 7H3z"/></svg>
               </div>
               <h3 style={{ margin: "0 0 0.5rem" }}>Academic Institution (Issuer)</h3>
               <p className="muted small" style={{ lineHeight: 1.6 }}>
                 Universities hold <strong>`INSTITUTE_ROLE`</strong> enforced by OpenZeppelin AccessControl. Authorized issuers compute SHA-256 document commitments and pin decentralized PDFs to IPFS.
               </p>
-              <ul style={{ fontSize: "0.85rem", color: "#334155", paddingLeft: "1.25rem", margin: "1rem 0" }}>
+              <ul style={{ fontSize: "0.85rem", color: "var(--cc-muted)", paddingLeft: "1.25rem", margin: "1rem 0" }}>
                 <li>Automated PDF rendering with embedded security QR</li>
                 <li>On-Chain Credential Revocation with audit trail</li>
                 <li>Batch Cohort Issuance via Merkle Trees (95%+ gas saved)</li>
@@ -139,14 +139,14 @@ export default function Home() {
           {/* Card 3: Employer */}
           <div className="card card-pad" style={{ borderTop: "4px solid #059669", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "#ecfdf5", color: "#059669", marginBottom: "0.75rem" }}>
+              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "rgba(5, 150, 105, 0.1)", color: "#059669", marginBottom: "0.75rem" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
               </div>
               <h3 style={{ margin: "0 0 0.5rem" }}>Employer / Recruiter (Verifier)</h3>
               <p className="muted small" style={{ lineHeight: 1.6 }}>
                 Employers execute <strong>Zero-Trust Auditing</strong>. Independent verification runs directly against the Ethereum EVM node with zero backend server or database dependency.
               </p>
-              <ul style={{ fontSize: "0.85rem", color: "#334155", paddingLeft: "1.25rem", margin: "1rem 0" }}>
+              <ul style={{ fontSize: "0.85rem", color: "var(--cc-muted)", paddingLeft: "1.25rem", margin: "1rem 0" }}>
                 <li>Byte-level SHA-256 Document Tampering Detection</li>
                 <li>Live camera webcam QR scanner for physical degrees</li>
                 <li>Download printable Official Blockchain Audit Reports</li>
@@ -160,7 +160,7 @@ export default function Home() {
       </section>
 
       {/* Why Blockchain vs Traditional DB Comparison */}
-      <section className="card card-pad" style={{ marginBottom: "3rem", background: "#f8fafc", border: "1px solid #cbd5e1" }}>
+      <section className="card card-pad" style={{ marginBottom: "3rem" }}>
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem", textAlign: "center" }}>
           Architectural Comparison: Ethereum Sepolia EVM vs Centralized Databases
         </h3>
@@ -171,36 +171,36 @@ export default function Home() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
             <thead>
-              <tr style={{ background: "#e2e8f0", textAlign: "left" }}>
-                <th style={{ padding: "0.6rem 1rem" }}>Feature</th>
-                <th style={{ padding: "0.6rem 1rem" }}>
+              <tr style={{ background: "var(--cc-cloud)", textAlign: "left" }}>
+                <th style={{ padding: "0.6rem 1rem", borderBottom: "1px solid var(--cc-line)" }}>Feature</th>
+                <th style={{ padding: "0.6rem 1rem", borderBottom: "1px solid var(--cc-line)" }}>
                   <span className="status-pill status-pill-danger">Centralized Database (SQL / MongoDB)</span>
                 </th>
-                <th style={{ padding: "0.6rem 1rem" }}>
+                <th style={{ padding: "0.6rem 1rem", borderBottom: "1px solid var(--cc-line)" }}>
                   <span className="status-pill status-pill-success">CertChain EVM Smart Contracts</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+              <tr style={{ borderBottom: "1px solid var(--cc-line)" }}>
                 <td style={{ padding: "0.6rem 1rem", fontWeight: 600 }}>Tamper Resistance</td>
                 <td style={{ padding: "0.6rem 1rem" }}>DB Admin can alter grades, names, or backdate degrees.</td>
-                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "#166534" }}>Immutable. Once confirmed in block, math prevents alteration.</td>
+                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "var(--cc-green)" }}>Immutable. Once confirmed in block, math prevents alteration.</td>
               </tr>
-              <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+              <tr style={{ borderBottom: "1px solid var(--cc-line)" }}>
                 <td style={{ padding: "0.6rem 1rem", fontWeight: 600 }}>Counterfeit Detection</td>
                 <td style={{ padding: "0.6rem 1rem" }}>Paper / PDF inspection prone to Photoshop forgery.</td>
-                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "#166534" }}>SHA-256 Avalanche Effect: 1-bit change breaks the hash.</td>
+                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "var(--cc-green)" }}>SHA-256 Avalanche Effect: 1-bit change breaks the hash.</td>
               </tr>
-              <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+              <tr style={{ borderBottom: "1px solid var(--cc-line)" }}>
                 <td style={{ padding: "0.6rem 1rem", fontWeight: 600 }}>Uptime & Verification</td>
                 <td style={{ padding: "0.6rem 1rem" }}>Server down or hacked = entire verification offline.</td>
-                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "#166534" }}>Decentralized EVM nodes provide 100% trustless uptime 24/7.</td>
+                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "var(--cc-green)" }}>Decentralized EVM nodes provide 100% trustless uptime 24/7.</td>
               </tr>
               <tr>
                 <td style={{ padding: "0.6rem 1rem", fontWeight: 600 }}>Student Ownership</td>
                 <td style={{ padding: "0.6rem 1rem" }}>University controls portal; degree hostage risk.</td>
-                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "#166534" }}>Self-Sovereign Identity: Mapped to student's private key wallet.</td>
+                <td style={{ padding: "0.6rem 1rem", fontWeight: 600, color: "var(--cc-green)" }}>Self-Sovereign Identity: Mapped to student's private key wallet.</td>
               </tr>
             </tbody>
           </table>

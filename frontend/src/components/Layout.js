@@ -76,8 +76,7 @@ export function PublicHeader() {
           href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
           target="_blank"
           rel="noreferrer"
-          className="network-pill-desktop"
-          style={{ textDecoration: "none", fontFamily: "monospace", color: "#64748b", background: "#f8fafc", border: "1px solid #e2e8f0" }}
+          className="network-pill-desktop network-pill-contract"
           title="CertificateRegistry Contract Address on Sepolia"
         >
           Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)} ↗
@@ -144,7 +143,7 @@ export function PublicHeader() {
       {mobileNavOpen && (
         <div className="mobile-nav-drawer">
           <div className="mobile-nav-status">
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#1e40af" }}>
+            <span className="network-pill-desktop" style={{ width: "fit-content" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
               Ethereum Sepolia (Chain 11155111)
             </span>
@@ -152,7 +151,8 @@ export function PublicHeader() {
               href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: "0.75rem", color: "#64748b", fontFamily: "monospace" }}
+              className="network-pill-contract"
+              style={{ width: "fit-content", marginTop: "4px" }}
             >
               Contract: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-6)} ↗
             </a>

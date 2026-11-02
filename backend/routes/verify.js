@@ -735,31 +735,11 @@ router.get("/:certId/document", async (req, res) => {
     let authorizedForCaller = false;
     const conditions = [];
     if (cleanWallet) {
-      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\    // Check if verification has been approved OR if request is from the student recipient
-    const { wallet } = req.query;
-    const isStudentOwner = wallet && stored.studentWallet && wallet.toLowerCase() === stored.studentWallet.toLowerCase();
-    const isApproved = await isVerificationApprovedOnChain(normalizedId) ||
-      await VerificationRequest.exists({ certId: normalizedId, status: "approved" });
-
-    if (!isApproved && !isStudentOwner) {
-      return res.status(403).json({
-        message: "Access locked. This certificate requires verification approval from the issuing institute before the document can be viewed."
-      });
-    }");
+      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       conditions.push({ employerWallet: { $regex: new RegExp("^" + safeWallet + "$", "i") } });
     }
     if (employerEmail && typeof employerEmail === "string" && employerEmail.trim().includes("@")) {
-      const safeEmail = employerEmail.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\    // Check if verification has been approved OR if request is from the student recipient
-    const { wallet } = req.query;
-    const isStudentOwner = wallet && stored.studentWallet && wallet.toLowerCase() === stored.studentWallet.toLowerCase();
-    const isApproved = await isVerificationApprovedOnChain(normalizedId) ||
-      await VerificationRequest.exists({ certId: normalizedId, status: "approved" });
-
-    if (!isApproved && !isStudentOwner) {
-      return res.status(403).json({
-        message: "Access locked. This certificate requires verification approval from the issuing institute before the document can be viewed."
-      });
-    }");
+      const safeEmail = employerEmail.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       conditions.push({ employerEmail: { $regex: new RegExp("^" + safeEmail + "$", "i") } });
     }
     if (requestId && typeof requestId === "string" && requestId.trim().startsWith("REQ-")) {

@@ -150,9 +150,9 @@ export default function StudentPortal() {
         </div>
 
         {/* Student Wallet Status Badge */}
-        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "#f8fafc", borderColor: "#cbd5e1", minWidth: 280 }}>
+        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "var(--cc-cloud)", borderColor: "var(--cc-line)", minWidth: 280 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--cc-subtle)", textTransform: "uppercase" }}>
               Student Wallet
             </span>
             <span style={{ fontSize: "0.75rem", background: isSepolia ? "#dcfce7" : "#fee2e2", color: isSepolia ? "#166534" : "#991b1b", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>
@@ -262,7 +262,7 @@ export default function StudentPortal() {
         <div>
           {searched && certificates.length === 0 && !loading && !error && (
             <div className="card card-pad" style={{ textAlign: "center", padding: "3rem 1rem" }}>
-              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "#f1f5f9", color: "#64748b", marginBottom: "0.75rem" }}>
+              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "rgba(100, 116, 139, 0.1)", color: "var(--cc-subtle)", marginBottom: "0.75rem" }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
               <h3 style={{ marginTop: "0.5rem" }}>No Credentials Found</h3>
@@ -310,7 +310,7 @@ export default function StudentPortal() {
                 {/* Shareable Certificate ID Box */}
                 <div
                   style={{
-                    background: "#f8fafc",
+                    background: "var(--cc-cloud)",
                     padding: "0.85rem 1.15rem",
                     borderRadius: "8px",
                     display: "flex",
@@ -318,14 +318,14 @@ export default function StudentPortal() {
                     justifyContent: "space-between",
                     flexWrap: "wrap",
                     gap: "0.75rem",
-                    border: "1px solid #e2e8f0"
+                    border: "1px solid var(--cc-line)"
                   }}
                 >
                   <div>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--cc-subtle)", textTransform: "uppercase", display: "block" }}>
                       Unique Certificate ID (Share this with Employers)
                     </span>
-                    <strong style={{ fontFamily: "monospace", fontSize: "1.05rem", color: "#1e293b", letterSpacing: "0.5px" }}>
+                    <strong style={{ fontFamily: "monospace", fontSize: "1.05rem", color: "var(--cc-ink)", letterSpacing: "0.5px" }}>
                       {cert.certId}
                     </strong>
                   </div>
@@ -465,7 +465,7 @@ export default function StudentPortal() {
           <div style={{ marginTop: "1.5rem" }}>
             <article className="card card-pad">
               <h3 style={{ margin: "0 0 0.5rem" }}>How to Verify Your Degree with Employers</h3>
-              <ol style={{ paddingLeft: "1.25rem", lineHeight: "1.7", fontSize: "0.9rem", color: "#334155" }}>
+              <ol style={{ paddingLeft: "1.25rem", lineHeight: "1.7", fontSize: "0.9rem", color: "var(--cc-muted)" }}>
                 <li>Copy your <strong>Unique Certificate ID</strong> from the Credentials tab.</li>
                 <li>Share this Certificate ID on your CV, LinkedIn, or directly with your prospective employer.</li>
                 <li>The employer enters your Certificate ID on the <strong>Employer Verification Portal</strong>.</li>
@@ -487,12 +487,12 @@ export default function StudentPortal() {
 
           {selectedCert ? (
             <div style={{ display: "grid", gap: "1rem" }}>
-              <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--cc-cloud)", padding: "1rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                 <h4 style={{ margin: "0 0 0.5rem" }}>{selectedCert.course} [{selectedCert.certId}]</h4>
                 <div style={{ display: "grid", gap: "0.75rem", fontSize: "0.85rem" }}>
                   <div>
                     <span className="muted small" style={{ display: "block" }}>SHA-256 Document Commitment Hash (Exact PDF Bytes):</span>
-                    <code style={{ wordBreak: "break-all", color: "#0f172a", fontSize: "0.8rem" }}>
+                    <code style={{ wordBreak: "break-all", color: "var(--cc-ink)", fontSize: "0.8rem" }}>
                       {selectedCert.documentHash || selectedCert.certHash}
                     </code>
                   </div>
@@ -538,10 +538,10 @@ export default function StudentPortal() {
             Every stakeholder in CertChain has an independent, self-sovereign Ethereum wallet identity.
           </p>
 
-          <div style={{ background: "#f8fafc", padding: "1.25rem", borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: "1.5rem" }}>
+          <div style={{ background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)", marginBottom: "1.5rem" }}>
             <div style={{ marginBottom: "1rem" }}>
               <span className="muted small" style={{ display: "block" }}>Connected Public Address:</span>
-              <strong style={{ fontFamily: "monospace", fontSize: "0.95rem", color: "#0f172a" }}>
+              <strong style={{ fontFamily: "monospace", fontSize: "0.95rem", color: "var(--cc-ink)" }}>
                 {walletAddress || "No wallet connected"}
               </strong>
             </div>

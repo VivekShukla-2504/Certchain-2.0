@@ -222,8 +222,8 @@ export default function Login() {
                 padding: "0.5rem",
                 borderRadius: "6px",
                 border: "none",
-                background: authMethod === "password" ? "var(--cc-accent, #2563eb)" : "transparent",
-                color: "#ffffff",
+                background: authMethod === "password" ? "var(--cc-blue)" : "transparent",
+                color: authMethod === "password" ? "#ffffff" : "var(--cc-ink)",
                 fontWeight: authMethod === "password" ? 600 : 400,
                 cursor: "pointer",
                 fontSize: "0.85rem"
@@ -238,8 +238,8 @@ export default function Login() {
                 padding: "0.5rem",
                 borderRadius: "6px",
                 border: "none",
-                background: authMethod === "otp" ? "var(--cc-accent, #2563eb)" : "transparent",
-                color: "#ffffff",
+                background: authMethod === "otp" ? "var(--cc-blue)" : "transparent",
+                color: authMethod === "otp" ? "#ffffff" : "var(--cc-ink)",
                 fontWeight: authMethod === "otp" ? 600 : 400,
                 cursor: "pointer",
                 fontSize: "0.85rem"

@@ -114,7 +114,7 @@ export default function KeyGenerator() {
         </div>
 
         {connectedWallet && (
-          <div style={{ marginTop: "1.5rem", padding: "1rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+          <div style={{ marginTop: "1.5rem", padding: "1rem", background: "var(--cc-cloud)", borderRadius: "8px", border: "1px solid var(--cc-line)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
               <div>
                 <span className="meta-label">Connected Sepolia Public Address</span>
@@ -144,7 +144,7 @@ export default function KeyGenerator() {
             </div>
 
             {/* Cryptographic Challenge-Response Signature Testing */}
-            <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid #e2e8f0" }}>
+            <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--cc-line)" }}>
               <span className="meta-label" style={{ display: "block", marginBottom: "0.5rem" }}>
                 🔐 Cryptographic Signature Verification (Phase 1 Acceptance Test)
               </span>
@@ -168,11 +168,11 @@ export default function KeyGenerator() {
               </div>
 
               {verificationResult && (
-                <div style={{ marginTop: "1rem", padding: "0.75rem", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "6px" }}>
-                  <span style={{ color: "#065f46", fontWeight: 700, display: "block" }}>
+                <div style={{ marginTop: "1rem", padding: "0.75rem", background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: "6px" }}>
+                  <span style={{ color: "var(--cc-green)", fontWeight: 700, display: "block" }}>
                     ✓ Cryptographic Ownership Verified for {verificationResult.stakeholder?.toUpperCase()}
                   </span>
-                  <div style={{ fontSize: "0.75rem", color: "#047857", marginTop: "4px", fontFamily: "monospace", wordBreak: "break-all" }}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--cc-green)", marginTop: "4px", fontFamily: "monospace", wordBreak: "break-all" }}>
                     Verified Address: {verificationResult.walletAddress || connectedWallet}<br />
                     Session Token: {verificationResult.token?.slice(0, 36)}...
                   </div>
@@ -191,7 +191,7 @@ export default function KeyGenerator() {
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.25rem" }}>
-          <div style={{ padding: "1rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+          <div style={{ padding: "1rem", background: "var(--cc-cloud)", borderRadius: "8px", border: "1px solid var(--cc-line)" }}>
             <span className="meta-label">CertificateRegistry Contract Address (Sepolia)</span>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
               <strong style={{ fontFamily: "monospace", fontSize: "0.95rem" }}>{CONTRACT_ADDRESS}</strong>
@@ -217,7 +217,7 @@ export default function KeyGenerator() {
             </div>
           </div>
 
-          <div style={{ padding: "1rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+          <div style={{ padding: "1rem", background: "var(--cc-cloud)", borderRadius: "8px", border: "1px solid var(--cc-line)" }}>
             <span className="meta-label">🏛️ Authorized Deployer / Institute Issuer Wallet (Sepolia)</span>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
               <strong style={{ fontFamily: "monospace", fontSize: "0.95rem" }}>{INSTITUTE_ADDRESS}</strong>
@@ -253,21 +253,21 @@ export default function KeyGenerator() {
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
-          <div style={{ padding: "1rem", background: "#eff6ff", borderRadius: "8px", border: "1px solid #bfdbfe" }}>
-            <strong style={{ color: "#1e40af" }}>🏛️ 1. Institute (Issuer)</strong>
-            <p className="small" style={{ margin: "0.5rem 0 0", color: "#1e3a8a" }}>
+          <div style={{ padding: "1rem", background: "rgba(37, 99, 235, 0.08)", borderRadius: "8px", border: "1px solid rgba(37, 99, 235, 0.2)" }}>
+            <strong style={{ color: "var(--cc-blue)" }}>🏛️ 1. Institute (Issuer)</strong>
+            <p className="small" style={{ margin: "0.5rem 0 0", color: "var(--cc-muted)" }}>
               Possesses an authorized Institute wallet on Sepolia. Signs certificate commitments and authorizes employer verification requests.
             </p>
           </div>
-          <div style={{ padding: "1rem", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
-            <strong style={{ color: "#166534" }}>🎓 2. Student (Recipient)</strong>
-            <p className="small" style={{ margin: "0.5rem 0 0", color: "#14532d" }}>
+          <div style={{ padding: "1rem", background: "rgba(16, 185, 129, 0.08)", borderRadius: "8px", border: "1px solid rgba(16, 185, 129, 0.25)" }}>
+            <strong style={{ color: "var(--cc-green)" }}>🎓 2. Student (Recipient)</strong>
+            <p className="small" style={{ margin: "0.5rem 0 0", color: "var(--cc-muted)" }}>
               Possesses an independent EVM address. Credentials are permanently bound to the student's address on Ethereum.
             </p>
           </div>
-          <div style={{ padding: "1rem", background: "#fefce8", borderRadius: "8px", border: "1px solid #fef08a" }}>
-            <strong style={{ color: "#854d0e" }}>🏢 3. Employer (Verifier)</strong>
-            <p className="small" style={{ margin: "0.5rem 0 0", color: "#713f12" }}>
+          <div style={{ padding: "1rem", background: "rgba(234, 179, 8, 0.08)", borderRadius: "8px", border: "1px solid rgba(234, 179, 8, 0.25)" }}>
+            <strong style={{ color: "#d97706" }}>🏢 3. Employer (Verifier)</strong>
+            <p className="small" style={{ margin: "0.5rem 0 0", color: "var(--cc-muted)" }}>
               Connects an independent EVM wallet to submit verification requests and inspect on-chain immutable proofs without third-party brokers.
             </p>
           </div>
@@ -275,7 +275,7 @@ export default function KeyGenerator() {
       </div>
 
       {/* 4. Sepolia Test ETH Faucets */}
-      <div className="card card-pad" style={{ background: "#fafafa" }}>
+      <div className="card card-pad">
         <h3 style={{ marginTop: 0 }}>⛽ Need Free Sepolia Testnet ETH?</h3>
         <p className="muted small" style={{ marginBottom: "1rem" }}>
           Sepolia ETH is completely free for testing and development:

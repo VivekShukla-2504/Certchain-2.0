@@ -524,7 +524,7 @@ export default function Verify() {
         </div>
 
         {/* Employer Web3 Status Badge */}
-        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "#f8fafc", borderColor: "#cbd5e1", minWidth: 280 }}>
+        <div className="card" style={{ padding: "0.75rem 1.25rem", background: "var(--cc-cloud)", borderColor: "var(--cc-line)", minWidth: 280 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
             <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
               Employer Wallet
@@ -650,9 +650,9 @@ export default function Verify() {
                   </button>
                 </div>
                 {isDirectEvmVerified && (
-                  <div style={{ marginTop: "0.75rem", padding: "0.6rem 1rem", background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7c3aed", display: "inline-block" }} />
-                    <span style={{ fontSize: "0.85rem", color: "#5b21b6", fontWeight: 700 }}>
+                  <div style={{ marginTop: "0.75rem", padding: "0.6rem 1rem", background: "rgba(124, 58, 237, 0.08)", border: "1px solid rgba(124, 58, 237, 0.25)", borderRadius: 8, display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#a855f7", display: "inline-block" }} />
+                    <span style={{ fontSize: "0.85rem", color: "#a855f7", fontWeight: 700 }}>
                       Direct Trustless EVM Proof: Verified directly from Ethereum Sepolia smart contract storage mappings (Zero MongoDB or Backend server dependency).
                     </span>
                   </div>
@@ -660,7 +660,7 @@ export default function Verify() {
               </div>
 
               {/* Step 2: Upload Certificate PDF for SHA-256 Tampering Detection */}
-              <div style={{ padding: "1.25rem", background: "#f8fafc", borderRadius: 8, border: "2px dashed #cbd5e1", marginBottom: "1.25rem" }}>
+              <div style={{ padding: "1.25rem", background: "var(--cc-cloud)", borderRadius: 8, border: "2px dashed var(--cc-line-strong)", marginBottom: "1.25rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
                   <label style={{ fontWeight: 600, fontSize: "0.9rem" }}>
                     Step 2: Upload Certificate PDF (Optional for Cryptographic Tamper Detection)
@@ -866,16 +866,16 @@ export default function Verify() {
               <div
                 className="card card-pad"
                 style={{
-                  borderLeft: "6px solid #10b981",
-                  background: "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)"
+                  borderLeft: "6px solid var(--cc-green)",
+                  background: "var(--cc-paper)"
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
                   <div>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: "9999px", fontWeight: 700, fontSize: "0.8rem", marginBottom: "0.5rem" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "rgba(16, 185, 129, 0.12)", color: "var(--cc-green)", padding: "3px 10px", borderRadius: "9999px", fontWeight: 700, fontSize: "0.8rem", marginBottom: "0.5rem" }}>
                       <span>✓</span> 100% AUTHENTIC & VERIFIED CREDENTIAL
                     </span>
-                    <h2 style={{ margin: "0.25rem 0 0.25rem", color: "#065f46", fontSize: "1.5rem" }}>
+                    <h2 style={{ margin: "0.25rem 0 0.25rem", color: "var(--cc-green)", fontSize: "1.5rem" }}>
                       Academic Credential Confirmed on Ethereum
                     </h2>
                     <p className="muted small" style={{ margin: 0 }}>
@@ -936,8 +936,8 @@ export default function Verify() {
 
                 {/* Candidate Academic Details */}
                 {approvedDetails.certificate && (
-                  <div style={{ marginTop: "1.25rem", background: "#ffffff", padding: "1.25rem", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
-                    <h3 style={{ margin: "0 0 1rem", fontSize: "1rem", color: "#0f172a" }}>
+                  <div style={{ marginTop: "1.25rem", background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: "8px", border: "1px solid var(--cc-line)" }}>
+                    <h3 style={{ margin: "0 0 1rem", fontSize: "1rem", color: "var(--cc-ink)" }}>
                       🎓 Candidate Academic Record
                     </h3>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "1rem" }}>
@@ -970,13 +970,13 @@ export default function Verify() {
                 )}
 
                 {/* Independent Blockchain Evidence Section */}
-                <div style={{ marginTop: "1.5rem", borderTop: "1px solid #bbf7d0", paddingTop: "1.25rem" }}>
+                <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--cc-line)", paddingTop: "1.25rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                    <h4 style={{ margin: 0, color: "#166534" }}>🛡️ Independent Blockchain Verification Evidence</h4>
+                    <h4 style={{ margin: 0, color: "var(--cc-green)" }}>🛡️ Independent Blockchain Verification Evidence</h4>
                     <span className="crypto-badge">Ethereum Sepolia (11155111)</span>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem", fontSize: "0.85rem", background: "#f8fafc", padding: "1rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem", fontSize: "0.85rem", background: "var(--cc-cloud)", padding: "1rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                     <div>
                       <span className="meta-label">Registry Contract</span>
                       <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", color: "#2563eb" }}>
@@ -1040,19 +1040,19 @@ export default function Verify() {
           <article className="card card-pad" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ margin: "0 0 0.5rem" }}>💡 CertChain Three-Stakeholder Verification Flow</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
-              <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--cc-cloud)", padding: "1rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                 <strong>1. Blockchain Verification</strong>
                 <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
                   Reads the immutable smart contract record on Sepolia to verify the credential was issued by an authorized institute and remains active.
                 </p>
               </div>
-              <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--cc-cloud)", padding: "1rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                 <strong>2. Document Integrity Check</strong>
                 <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
                   Hashes the candidate's uploaded PDF with SHA-256. If even one letter or grade digit is modified, tampering is instantly flagged.
                 </p>
               </div>
-              <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--cc-cloud)", padding: "1rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                 <strong>3. Institute Authorization</strong>
                 <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
                   The issuing institution's authorized administrative wallet confirms and signs the disclosure of student records to the employer.
@@ -1104,10 +1104,10 @@ export default function Verify() {
 
           {employerRequests.length === 0 ? (
             <div className="confidential-vault-card">
-              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "#f1f5f9", color: "#475569", marginBottom: "0.75rem" }}>
+              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "rgba(100, 116, 139, 0.1)", color: "var(--cc-subtle)", marginBottom: "0.75rem" }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               </div>
-              <h3 style={{ margin: "0 0 0.5rem", color: "#0f172a", fontSize: "1.15rem" }}>
+              <h3 style={{ margin: "0 0 0.5rem", color: "var(--cc-ink)", fontSize: "1.15rem" }}>
                 Confidential Recruiter Workspace (Zero Data Leakage)
               </h3>
               <p className="muted small" style={{ maxWidth: 520, margin: "0 auto 1.25rem", lineHeight: 1.6 }}>
@@ -1219,10 +1219,10 @@ export default function Verify() {
             Employers interact with CertChain through their individual Ethereum wallet identity.
           </p>
 
-          <div style={{ background: "#f8fafc", padding: "1.25rem", borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: "1.5rem" }}>
+          <div style={{ background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)", marginBottom: "1.5rem" }}>
             <div style={{ marginBottom: "1rem" }}>
               <span className="muted small" style={{ display: "block" }}>Connected Public Address:</span>
-              <strong style={{ fontFamily: "monospace", fontSize: "0.95rem", color: "#0f172a" }}>
+              <strong style={{ fontFamily: "monospace", fontSize: "0.95rem", color: "var(--cc-ink)" }}>
                 {employerWallet || "No wallet connected"}
               </strong>
             </div>
@@ -1241,7 +1241,7 @@ export default function Verify() {
 
             <div>
               <span className="muted small" style={{ display: "block" }}>Security Boundary:</span>
-              <span style={{ fontSize: "0.85rem", color: "#334155" }}>
+              <span style={{ fontSize: "0.85rem", color: "var(--cc-muted)" }}>
                 Employers can submit verification requests and inspect on-chain proofs. Smart contract access control ensures employers cannot issue, modify, or revoke academic credentials.
               </span>
             </div>
@@ -1255,13 +1255,13 @@ export default function Verify() {
 
       {/* MODAL 1: QR CODE WEBCAM & IMAGE SCANNER */}
       {showQrModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
-          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 480, width: "100%", padding: "1.5rem", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
+          <div style={{ background: "var(--cc-paper)", color: "var(--cc-ink)", border: "1px solid var(--cc-line)", borderRadius: 12, maxWidth: 480, width: "100%", padding: "1.5rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.15rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 Scan Physical Certificate QR
               </h3>
-              <button type="button" onClick={stopQrCamera} style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#64748b" }}>
+              <button type="button" onClick={stopQrCamera} style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "var(--cc-subtle)" }}>
                 ✕
               </button>
             </div>
@@ -1312,69 +1312,69 @@ export default function Verify() {
 
       {/* MODAL 2: OFFICIAL BLOCKCHAIN VERIFICATION AUDIT CERTIFICATE */}
       {showAuditModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
-          <div style={{ background: "#ffffff", borderRadius: 12, maxWidth: 660, width: "100%", padding: "2rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)", maxHeight: "90vh", overflowY: "auto", border: "4px double #0284c7" }}>
-            <div style={{ textAlign: "center", borderBottom: "2px solid #e2e8f0", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
-              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "#f0f9ff", color: "#0284c7", marginBottom: "0.5rem" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
+          <div style={{ background: "var(--cc-paper)", color: "var(--cc-ink)", borderRadius: 12, maxWidth: 660, width: "100%", padding: "2rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", maxHeight: "90vh", overflowY: "auto", border: "2px solid #0284c7" }}>
+            <div style={{ textAlign: "center", borderBottom: "2px solid var(--cc-line)", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
+              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "rgba(2, 132, 199, 0.12)", color: "#0284c7", marginBottom: "0.5rem" }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               </div>
-              <h2 style={{ margin: "0.25rem 0", color: "#0f172a", textTransform: "uppercase", letterSpacing: "1px", fontSize: "1.35rem" }}>
+              <h2 style={{ margin: "0.25rem 0", color: "var(--cc-ink)", textTransform: "uppercase", letterSpacing: "1px", fontSize: "1.35rem" }}>
                 Cryptographic Credential Attestation
               </h2>
-              <span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 700, letterSpacing: "0.5px" }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--cc-subtle)", fontWeight: 700, letterSpacing: "0.5px" }}>
                 ETHEREUM SEPOLIA DECENTRALIZED ACADEMIC REGISTRY
               </span>
             </div>
 
-            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "1rem", textAlign: "center", marginBottom: "1.5rem" }}>
-              <span style={{ fontSize: "1.25rem", color: "#166534", fontWeight: 800, letterSpacing: "0.5px" }}>
+            <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: 8, padding: "1rem", textAlign: "center", marginBottom: "1.5rem" }}>
+              <span style={{ fontSize: "1.25rem", color: "var(--cc-green)", fontWeight: 800, letterSpacing: "0.5px" }}>
                 ✓ 100% VERIFIED AUTHENTIC & UNTAMPERED
               </span>
-              <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", color: "#14532d" }}>
+              <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", color: "var(--cc-green)" }}>
                 Cryptographically anchored on Ethereum Sepolia Proof-of-Stake consensus at {new Date().toLocaleString()}.
               </p>
             </div>
 
-            <div style={{ display: "grid", gap: "0.75rem", fontSize: "0.9rem", marginBottom: "1.5rem", background: "#f8fafc", padding: "1.25rem", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Certificate ID:</span>
-                <strong style={{ fontFamily: "monospace", color: "#0f172a" }}>{certId}</strong>
+            <div style={{ display: "grid", gap: "0.75rem", fontSize: "0.9rem", marginBottom: "1.5rem", background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Certificate ID:</span>
+                <strong style={{ fontFamily: "monospace", color: "var(--cc-ink)" }}>{certId}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Candidate Name:</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Candidate Name:</span>
                 <strong>{approvedDetails?.certificate?.candidateName || "Verified Graduate"}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Qualification / Degree:</span>
-                <strong style={{ color: "#2563eb" }}>{approvedDetails?.certificate?.course || "Academic Credential"}</strong>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Qualification / Degree:</span>
+                <strong style={{ color: "var(--cc-blue)" }}>{approvedDetails?.certificate?.course || "Academic Credential"}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Issuing Institution:</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Issuing Institution:</span>
                 <strong>{approvedDetails?.institutionId || "Authorized University"}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Smart Contract Address:</span>
-                <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#2563eb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Smart Contract Address:</span>
+                <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "var(--cc-blue)" }}>
                   {CONTRACT_ADDRESS} ↗
                 </a>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Issuer Wallet:</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Issuer Wallet:</span>
                 <code style={{ fontSize: "0.8rem" }}>{approvedDetails?.issuerWallet ? approvedDetails.issuerWallet.slice(0, 16) + "..." : "Authorized University"}</code>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                <span style={{ color: "#64748b" }}>Student Wallet:</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                <span style={{ color: "var(--cc-subtle)" }}>Student Wallet:</span>
                 <code style={{ fontSize: "0.8rem" }}>{approvedDetails?.studentWallet ? approvedDetails.studentWallet.slice(0, 16) + "..." : "Self-Sovereign Identity"}</code>
               </div>
               {approvedDetails?.ipfsCid && (
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem" }}>
-                  <span style={{ color: "#64748b" }}>Decentralized IPFS CID:</span>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.4rem" }}>
+                  <span style={{ color: "var(--cc-subtle)" }}>Decentralized IPFS CID:</span>
                   <code style={{ fontSize: "0.8rem" }}>{approvedDetails.ipfsCid}</code>
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Consensus Finality:</span>
-                <span style={{ fontWeight: 700, color: "#059669" }}>Ethereum PoS (Gasper Protocol)</span>
+                <span style={{ color: "var(--cc-subtle)" }}>Consensus Finality:</span>
+                <span style={{ fontWeight: 700, color: "var(--cc-green)" }}>Ethereum PoS (Gasper Protocol)</span>
               </div>
             </div>
 

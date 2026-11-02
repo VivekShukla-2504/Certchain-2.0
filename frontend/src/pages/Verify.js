@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import api, { API_ORIGIN } from "../api";
+import api from "../api";
 import { Alert, Button, Field, StatCard } from "../components/UI";
 import {
   connectMetaMaskWallet,
@@ -36,7 +36,7 @@ export default function Verify() {
   // Employer Identity & Wallet
   const [employerName, setEmployerName] = useState(() => localStorage.getItem("certchain_employer_name") || "");
   const [employerEmail, setEmployerEmail] = useState(() => localStorage.getItem("certchain_employer_email") || "");
-  const [employerWallet, setEmployerWallet] = useState("");
+  const [employerWallet, setEmployerWallet] = useState(() => localStorage.getItem("certchain_employer_wallet") || "");
   const [isSepolia, setIsSepolia] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(false);
   const [isEmployerAuthenticated, setIsEmployerAuthenticated] = useState(() => {
@@ -106,7 +106,9 @@ export default function Verify() {
     if (certificateId) {
       const normalized = decodeURIComponent(certificateId).trim().toUpperCase();
       setCertId(normalized);
-      checkStatus(normalized);
+      if (localStorage.getItem("certchain_role") === "employer" && !!localStorage.getItem("certchain_token")) {
+        checkStatus(normalized);
+      }
     }
   }, [certificateId]);
 
@@ -174,6 +176,11 @@ export default function Verify() {
       setIsEmployerAuthenticated(true);
       setIsSepolia(true);
       fetchEmployerHistory();
+
+      const targetCert = certId || (certificateId ? decodeURIComponent(certificateId).trim().toUpperCase() : "");
+      if (targetCert) {
+        checkStatus(targetCert);
+      }
     } catch (err) {
       alert("Employer Web3 Authentication failed: " + err.message);
     } finally {
@@ -186,6 +193,10 @@ export default function Verify() {
     setEmployerWallet("");
     setIsEmployerAuthenticated(false);
     setEmployerRequests([]);
+    setVerificationStatus("idle");
+    setApprovedDetails(null);
+    setTamperDetails(null);
+    setRevokedDetails(null);
   }
 
   // Handle PDF file selection & SHA-256 calculation
@@ -629,64 +640,105 @@ export default function Verify() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <nav className="dashboard-nav-tabs" aria-label="Employer views">
-        <button
-          type="button"
-          className={`dashboard-nav-tab ${activeTab === "verify" ? "active" : ""}`}
-          onClick={() => setActiveTab("verify")}
+      {!isEmployerAuthenticated ? (
+        <div
+          className="card card-pad text-center"
+          style={{
+            margin: "2rem auto",
+            maxWidth: 620,
+            padding: "3.5rem 2rem",
+            borderTop: "4px solid #2563eb",
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)"
+          }}
         >
-          Verify Credential
-        </button>
-        <button
-          type="button"
-          className={`dashboard-nav-tab ${activeTab === "overview" ? "active" : ""}`}
-          onClick={() => setActiveTab("overview")}
-        >
-          Protocol Overview
-        </button>
-        <button
-          type="button"
-          className={`dashboard-nav-tab ${activeTab === "requests" ? "active" : ""}`}
-          onClick={() => setActiveTab("requests")}
-        >
-          Confidential Verification History ({employerRequests.length})
-        </button>
-        <button
-          type="button"
-          className={`dashboard-nav-tab ${activeTab === "wallet" ? "active" : ""}`}
-          onClick={() => setActiveTab("wallet")}
-        >
-          Organization Identity & Keys
-        </button>
-      </nav>
+          <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>🔐</div>
+          <span className="eyebrow" style={{ color: "#2563eb", marginBottom: "0.5rem", display: "inline-block" }}>
+            Access Restricted
+          </span>
+          <h2 style={{ margin: "0.25rem 0 0.75rem", fontSize: "1.6rem" }}>
+            Employer Web3 Signature Required
+          </h2>
+          <p style={{ color: "#64748b", fontSize: "0.95rem", lineHeight: 1.6, maxWidth: 500, margin: "0 auto 2rem" }}>
+            To safeguard student privacy and verify credential authenticity on <strong>Ethereum Sepolia</strong>, employers and recruiters must sign in using their Web3 wallet.
+          </p>
 
-      {/* TAB 1: VERIFY CERTIFICATE */}
-      {activeTab === "verify" && (
-        <div>
-          {/* Main Verification Card */}
-          <div className="card card-pad" style={{ marginBottom: "2rem", borderTop: "4px solid #2563eb" }}>
-            <form onSubmit={handleVerifySubmit}>
-              <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-                  Presentation Quick-Test:
-                </span>
-                <button
-                  type="button"
-                  className="quick-test-tag"
-                  onClick={() => {
-                    const demoId = "CERT-DEPLOYER-TEST";
-                    setCertId(demoId);
-                    checkStatus(demoId);
-                  }}
-                >
-                  Sepolia Anchor Test (Authentic)
-                </button>
-              </div>
-              <div style={{ marginBottom: "1.25rem" }}>
-                <label style={{ display: "block", fontWeight: 600, marginBottom: "0.4rem", fontSize: "0.95rem" }}>
-                  Step 1: Enter Candidate Certificate ID *
-                </label>
+          <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+            <Button
+              variant="primary"
+              onClick={handleSignInWithEmployerWallet}
+              loading={connectingWallet}
+              style={{ fontSize: "1rem", padding: "0.75rem 1.75rem" }}
+            >
+              🦊 Sign In with MetaMask (Sepolia)
+            </Button>
+          </div>
+
+          <div
+            style={{
+              marginTop: "2.25rem",
+              padding: "1rem 1.25rem",
+              background: "var(--cc-cloud)",
+              borderRadius: 8,
+              border: "1px solid var(--cc-line)",
+              fontSize: "0.85rem",
+              color: "#64748b",
+              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem"
+            }}
+          >
+            <span style={{ fontSize: "1.4rem" }}>🛡️</span>
+            <div>
+              <strong style={{ color: "var(--cc-ink)" }}>Gasless Cryptographic Authentication:</strong>
+              <div>Signature is verified off-chain via EIP-191 / EIP-712. No Sepolia ETH gas fees are incurred.</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Navigation Tabs */}
+          <nav className="dashboard-nav-tabs" aria-label="Employer views">
+            <button
+              type="button"
+              className={`dashboard-nav-tab ${activeTab === "verify" ? "active" : ""}`}
+              onClick={() => setActiveTab("verify")}
+            >
+              Verify Credential
+            </button>
+            <button
+              type="button"
+              className={`dashboard-nav-tab ${activeTab === "overview" ? "active" : ""}`}
+              onClick={() => setActiveTab("overview")}
+            >
+              Protocol Overview
+            </button>
+            <button
+              type="button"
+              className={`dashboard-nav-tab ${activeTab === "requests" ? "active" : ""}`}
+              onClick={() => setActiveTab("requests")}
+            >
+              Confidential Verification History ({employerRequests.length})
+            </button>
+            <button
+              type="button"
+              className={`dashboard-nav-tab ${activeTab === "wallet" ? "active" : ""}`}
+              onClick={() => setActiveTab("wallet")}
+            >
+              Organization Identity & Keys
+            </button>
+          </nav>
+
+          {/* TAB 1: VERIFY CERTIFICATE */}
+          {activeTab === "verify" && (
+            <div>
+              {/* Main Verification Card */}
+              <div className="card card-pad" style={{ marginBottom: "2rem", borderTop: "4px solid #2563eb" }}>
+                <form onSubmit={handleVerifySubmit}>
+                  <div style={{ marginBottom: "1.25rem" }}>
+                    <label style={{ display: "block", fontWeight: 600, marginBottom: "0.4rem", fontSize: "0.95rem" }}>
+                      Step 1: Enter Candidate Certificate ID *
+                    </label>
                 <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "stretch" }}>
                   <input
                     type="text"
@@ -995,17 +1047,6 @@ export default function Verify() {
                     >
                       Print Proof
                     </button>
-                    {!approvedDetails.directOnChain && (
-                      <a
-                        href={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document${employerWallet ? `?employerWallet=${encodeURIComponent(employerWallet)}` : employerEmail ? `?employerEmail=${encodeURIComponent(employerEmail)}` : ""}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="button button-primary"
-                        style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem" }}
-                      >
-                        Download Verified PDF
-                      </a>
-                    )}
                   </div>
                 </div>
 
@@ -1327,6 +1368,8 @@ export default function Verify() {
           </Button>
         </article>
       )}
+      </>
+    )}
 
       {/* MODAL 1: QR CODE WEBCAM & IMAGE SCANNER */}
       {showQrModal && (

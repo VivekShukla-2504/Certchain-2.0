@@ -144,53 +144,6 @@ export default function StudentPortal() {
     setTimeout(() => setCopiedId(""), 2000);
   }
 
-  function downloadW3cVerifiableCredential(cert) {
-    const vcPayload = {
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://purl.imsglobal.org/spec/ob/v3p0/context.json"
-      ],
-      "id": `urn:uuid:${cert.certId}`,
-      "type": ["VerifiableCredential", "AcademicDegreeCredential"],
-      "issuer": {
-        "id": `did:ethr:sepolia:${cert.issuerWallet || cert.institutionId}`,
-        "name": cert.institutionId || "Authorized Academic Institution"
-      },
-      "issuanceDate": cert.issueDate ? new Date(cert.issueDate).toISOString() : new Date().toISOString(),
-      "credentialSubject": {
-        "id": `did:ethr:sepolia:${cert.studentWallet || "sovereign-student"}`,
-        "name": cert.candidateName,
-        "rollNumber": cert.rollNumber,
-        "degree": cert.course,
-        "grade": cert.grade,
-        "department": cert.department || "Academic Department"
-      },
-      "evidence": [
-        {
-          "type": "EthereumSepoliaAnchor",
-          "contractAddress": CONTRACT_ADDRESS,
-          "transactionHash": cert.txHash || "0xConfirmedOnSepolia",
-          "documentSha256": cert.documentHash || cert.certHash,
-          "ipfsCid": cert.ipfsCid || "None"
-        }
-      ],
-      "proof": {
-        "type": "EcdsaSecp256k1Signature2019",
-        "created": new Date().toISOString(),
-        "verificationMethod": `did:ethr:sepolia:${CONTRACT_ADDRESS}#controller`,
-        "proofPurpose": "assertionMethod"
-      }
-    };
-
-    const blob = new Blob([JSON.stringify(vcPayload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${cert.certId}_W3C_Credential.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const activeCerts = certificates.filter((c) => !c.revoked);
   const revokedCerts = certificates.filter((c) => c.revoked);
 
@@ -526,36 +479,6 @@ export default function StudentPortal() {
                   >
                     Inspect Fingerprint
                   </button>
-                  <a
-                    href={`/verify/${cert.certId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="button button-secondary"
-                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem" }}
-                  >
-                    Verification View ↗
-                  </a>
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem", color: "#059669", fontWeight: 600 }}
-                    onClick={() => downloadW3cVerifiableCredential(cert)}
-                    title="Export machine-readable W3C Verifiable Credential standard format"
-                  >
-                    Export W3C JSON-LD
-                  </button>
-                  {cert.ipfsCid && (
-                    <a
-                      href={`https://gateway.pinata.cloud/ipfs/${cert.ipfsCid}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="button button-secondary"
-                      style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem", color: "#7c3aed", fontWeight: 600 }}
-                      title="Inspect immutable raw file on decentralized IPFS network"
-                    >
-                      IPFS Gateway ↗
-                    </a>
-                  )}
                   <button
                     type="button"
                     className="button button-secondary"

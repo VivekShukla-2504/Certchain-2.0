@@ -820,6 +820,28 @@ export default function Dashboard() {
             </div>
           ) : (
             <form onSubmit={handleIssueCertificate}>
+              <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  style={{ fontSize: "0.85rem", background: "#fdf4ff", border: "1px solid #f0abfc", color: "#a21caf", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+                  onClick={() => {
+                    setIssueForm({
+                      candidateName: "Vivek Shukla",
+                      rollNumber: "2026-CSE-001",
+                      course: "Bachelor of Technology (Computer Science)",
+                      department: "Computer Science & Engineering",
+                      academicSession: "2022-2026",
+                      grade: "9.8 CGPA (First Class with Distinction)",
+                      issueDate: new Date().toISOString().split("T")[0],
+                      documentType: "Degree",
+                      studentWallet: "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3",
+                      studentEmail: "student@certchain.edu"
+                    });
+                  }}
+                >
+                  ✨ Quick Autofill Presentation Demo Candidate
+                </button>
+              </div>
               {/* Step 1: Student Selection */}
               <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>

@@ -7,7 +7,8 @@ import {
   isSepoliaNetwork,
   ensureSepoliaNetwork,
   hasMetaMask,
-  SEPOLIA_CHAIN_ID_DEC
+  SEPOLIA_CHAIN_ID_DEC,
+  getStudentCertificatesDirect
 } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
@@ -152,6 +153,20 @@ export default function StudentPortal() {
             <Button type="button" variant="secondary" onClick={handleConnectMetaMask}>
               🦊 Sync MetaMask
             </Button>
+          </div>
+          <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Demo Quick-Fill:</span>
+            <button
+              type="button"
+              style={{ fontSize: "0.75rem", background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1d4ed8", padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
+              onClick={() => {
+                const demoAddr = "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3";
+                setQuery(demoAddr);
+                loadCertificates(demoAddr);
+              }}
+            >
+              ✨ Primary Deployer / Student Wallet
+            </button>
           </div>
         </form>
       </div>
@@ -335,6 +350,19 @@ export default function StudentPortal() {
                   >
                     🛡️ Employer Verification View ↗
                   </a>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem", color: "#2563eb", fontWeight: 600 }}
+                    onClick={() => {
+                      const url = `${window.location.origin}/verify/${cert.certId}`;
+                      navigator.clipboard.writeText(url);
+                      setCopiedId(`URL-${cert.certId}`);
+                      setTimeout(() => setCopiedId(""), 2500);
+                    }}
+                  >
+                    {copiedId === `URL-${cert.certId}` ? "✓ Verification Link Copied!" : "🔗 Copy Verification Link"}
+                  </button>
                 </div>
               </div>
             ))}

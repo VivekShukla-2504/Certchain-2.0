@@ -524,6 +524,22 @@ export default function Verify() {
           {/* Main Verification Card */}
           <div className="card card-pad" style={{ marginBottom: "2rem", borderTop: "4px solid #2563eb" }}>
             <form onSubmit={handleVerifySubmit}>
+              <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                  Presentation Quick-Test:
+                </span>
+                <button
+                  type="button"
+                  style={{ fontSize: "0.75rem", background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#15803d", padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontWeight: 700 }}
+                  onClick={() => {
+                    const demoId = "CERT-DEPLOYER-TEST";
+                    setCertId(demoId);
+                    checkStatus(demoId);
+                  }}
+                >
+                  🟢 Test Authentic Degree (Sepolia Anchor)
+                </button>
+              </div>
               <div style={{ marginBottom: "1.25rem" }}>
                 <label style={{ display: "block", fontWeight: 600, marginBottom: "0.4rem", fontSize: "0.95rem" }}>
                   Step 1: Enter Candidate Certificate ID *

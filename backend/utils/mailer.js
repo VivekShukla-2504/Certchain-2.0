@@ -88,69 +88,12 @@ async function sendViaResend({ to, subject, text, attachments = [] }) {
 }
 
 /**
- * Sends email via Brevo (Sendinblue) HTTPS REST API (Port 443).
- * Brevo allows sending 300 emails/day to ANY email address (Gmail, college IDs, etc.)
- * without requiring custom domain verification. Never blocked by Render free tier.
- */
-async function sendViaBrevo({ to, subject, text, attachments = [] }) {
-  const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) return null;
-
-  const senderEmail = (process.env.BREVO_SENDER || process.env.MAIL_FROM || process.env.SMTP_USER || "certchain@resend.dev").trim();
-  const toList = Array.isArray(to) ? to.map((e) => ({ email: e })) : [{ email: to }];
-
-  const payload = {
-    sender: { name: "CertChain Protocol", email: senderEmail },
-    to: toList,
-    subject,
-    textContent: text
-  };
-
-  if (attachments && attachments.length > 0) {
-    payload.attachment = attachments.map((att) => ({
-      name: att.filename,
-      content: Buffer.isBuffer(att.content) ? att.content.toString("base64") : Buffer.from(att.content).toString("base64")
-    }));
-  }
-
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "api-key": apiKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || `Brevo error: ${res.status}`);
-  }
-  return { messageId: data.messageId, provider: "brevo" };
-}
-
-/**
  * Unified resilient email sender:
- * 1. Attempts Brevo HTTPS API (Port 443) if BREVO_API_KEY is set (delivers to ANY recipient without domain restriction)
- * 2. Attempts Resend HTTPS API (Port 443) if RESEND_API_KEY is set
- * 3. Falls back to Nodemailer SMTP
+ * 1. Attempts Resend HTTPS API (Port 443) if configured
+ * 2. Falls back to Nodemailer SMTP
  */
 async function sendEmailMessage({ to, subject, text, attachments = [] }) {
-  // 1. Check Brevo HTTPS API (delivers to any recipient email worldwide without domain check)
-  if (process.env.BREVO_API_KEY) {
-    try {
-      console.log(`[CertChain Mailer] Dispatching via Brevo HTTPS to ${to}...`);
-      const result = await sendViaBrevo({ to, subject, text, attachments });
-      if (result) {
-        console.log(`[CertChain Mailer] Delivered via Brevo to ${to} (ID: ${result.messageId})`);
-        return result;
-      }
-    } catch (brevoErr) {
-      console.warn(`[CertChain Mailer] Brevo HTTPS failed (${brevoErr.message}), falling back...`);
-    }
-  }
-
-  // 2. Check Resend HTTPS API (works everywhere, including Render free tier)
+  // 1. Check Resend HTTPS API (works everywhere, including Render free tier)
   if (process.env.RESEND_API_KEY) {
     try {
       console.log(`[CertChain Mailer] Dispatching via Resend HTTPS to ${to}...`);

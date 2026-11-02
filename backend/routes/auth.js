@@ -344,15 +344,14 @@ router.post("/send-login-otp", async (req, res) => {
         text: `Your CertChain login verification code is ${otp}. It expires in 10 minutes. If you did not request this login code, please secure your account.`
       });
       console.log(`[CertChain Auth] Login OTP email dispatched for ${institution.email}`);
-      return res.json({ message: `Login OTP sent successfully to ${institution.email}.` });
     } catch (mailErr) {
-      console.warn(`[CertChain Auth] Mail sending failed (${mailErr.message}). Cloud free tier SMTP fallback active.`);
-      return res.json({
-        message: `Cloud SMTP blocked by free tier firewall. For presentation & evaluation, your verification code is: ${otp}`,
-        demoOtp: otp,
-        cloudFallback: true
+      console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
+      return res.status(500).json({
+        message: `Unable to deliver email to ${institution.email}: ${mailErr.message}. If running on cloud free tier, raw SMTP ports may be blocked.`
       });
     }
+
+    return res.json({ message: `Login OTP sent successfully to ${institution.email}.` });
   } catch (err) {
     console.error("[CertChain Auth] Error in send-login-otp:", err.message);
     return res.status(500).json({ message: "Failed to send login OTP: " + err.message });
@@ -447,15 +446,14 @@ router.post("/forgot-password", async (req, res) => {
         text: `Your CertChain password reset code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
       });
       console.log(`[CertChain Auth] Password reset OTP email dispatched for ${institution.email}`);
-      return res.json({ message: `Password reset OTP has been sent to ${institution.email}.` });
     } catch (mailErr) {
-      console.warn(`[CertChain Auth] Mail sending failed: ${mailErr.message}. Cloud free tier SMTP fallback active.`);
-      return res.json({
-        message: `Cloud SMTP blocked by free tier firewall. For presentation & verification, your reset code is: ${otp}`,
-        demoOtp: otp,
-        cloudFallback: true
+      console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
+      return res.status(500).json({
+        message: `Unable to deliver email to ${institution.email}: ${mailErr.message}. If running on cloud free tier, raw SMTP ports may be blocked.`
       });
     }
+
+    return res.json({ message: `Password reset OTP has been sent to ${institution.email}.` });
   } catch (err) {
     console.error(`[CertChain Auth] Error in forgot-password for ${req.body?.email}:`, err.message);
     return res.status(500).json({ message: "Password reset request failed: " + err.message });

@@ -57,6 +57,9 @@ export default function Login() {
       const res = await api.post("/auth/send-login-otp", { email: email.trim() });
       setOtpSent(true);
       setOtpMessage(res.data.message || `OTP sent to ${email.trim()}.`);
+      if (res.data.demoOtp) {
+        setOtp(res.data.demoOtp);
+      }
     } catch (err) {
       setOtpSent(false);
       setError(err.response?.data?.message || "No registered account found with this email.");

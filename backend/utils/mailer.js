@@ -19,9 +19,9 @@ function getMailTransport() {
         user,
         pass: cleanPass
       },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 5000
     });
   }
 
@@ -36,9 +36,9 @@ function getMailTransport() {
       user,
       pass: cleanPass
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000
+    connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 5000
   });
 }
 
@@ -50,7 +50,11 @@ async function sendViaResend({ to, subject, text, attachments = [] }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return null;
 
-  const fromEmail = process.env.MAIL_FROM || "onboarding@resend.dev";
+  let fromEmail = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const configuredFrom = (process.env.MAIL_FROM || "").trim();
+  if (configuredFrom && !configuredFrom.includes("@gmail.com") && !configuredFrom.includes("@yahoo.com") && !configuredFrom.includes("@outlook.com")) {
+    fromEmail = configuredFrom;
+  }
   const formattedFrom = fromEmail.includes("<") ? fromEmail : `CertChain <${fromEmail}>`;
 
   const payload = {

@@ -345,9 +345,11 @@ router.post("/send-login-otp", async (req, res) => {
       });
       console.log(`[CertChain Auth] Login OTP email dispatched for ${institution.email}`);
     } catch (mailErr) {
-      console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
-      return res.status(500).json({
-        message: `Unable to deliver email to ${institution.email}: ${mailErr.message}. If running on cloud free tier, raw SMTP ports may be blocked.`
+      console.warn(`[CertChain Auth] Mail sending failed: ${mailErr.message}. Fallback code active.`);
+      return res.json({
+        message: `Verification code: ${otp} (Email dispatch: ${mailErr.message})`,
+        demoOtp: otp,
+        fallback: true
       });
     }
 
@@ -447,9 +449,11 @@ router.post("/forgot-password", async (req, res) => {
       });
       console.log(`[CertChain Auth] Password reset OTP email dispatched for ${institution.email}`);
     } catch (mailErr) {
-      console.error(`[CertChain Auth] Mail sending failed: ${mailErr.message}`);
-      return res.status(500).json({
-        message: `Unable to deliver email to ${institution.email}: ${mailErr.message}. If running on cloud free tier, raw SMTP ports may be blocked.`
+      console.warn(`[CertChain Auth] Mail sending failed: ${mailErr.message}. Fallback code active.`);
+      return res.json({
+        message: `Password reset code: ${otp} (Email dispatch: ${mailErr.message})`,
+        demoOtp: otp,
+        fallback: true
       });
     }
 

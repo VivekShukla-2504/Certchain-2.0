@@ -290,23 +290,6 @@ export default function StudentPortal() {
             <Button type="submit" disabled={loading}>
               {loading ? "Querying Sepolia..." : "Lookup Credentials"}
             </Button>
-            <Button type="button" variant="secondary" onClick={handleConnectMetaMask}>
-              Sync MetaMask
-            </Button>
-          </div>
-          <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Demo Quick-Fill:</span>
-            <button
-              type="button"
-              className="quick-test-tag"
-              onClick={() => {
-                const demoAddr = "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3";
-                setQuery(demoAddr);
-                loadCertificates(demoAddr);
-              }}
-            >
-              Primary Student Wallet (Demo)
-            </button>
           </div>
         </form>
       </div>

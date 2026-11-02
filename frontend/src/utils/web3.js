@@ -267,24 +267,32 @@ export async function signChallenge(challengeText, address) {
 export async function authenticateStakeholderWallet(role = "institute") {
   const address = await connectMetaMaskWallet();
 
-  // 1. Request cryptographic challenge
-  const challengeRes = await api.get(`/auth/wallet-challenge?address=${encodeURIComponent(address)}&role=${encodeURIComponent(role)}`);
-  const { challenge } = challengeRes.data;
+  try {
+    // 1. Request cryptographic challenge (and enforce stakeholder role access control)
+    const challengeRes = await api.get(`/auth/wallet-challenge?address=${encodeURIComponent(address)}&role=${encodeURIComponent(role)}`);
+    const { challenge } = challengeRes.data;
 
-  // 2. Sign with private key via MetaMask
-  const signature = await signChallenge(challenge, address);
+    // 2. Sign with private key via MetaMask
+    const signature = await signChallenge(challenge, address);
 
-  // 3. Verify on backend
-  const verifyRes = await api.post("/auth/wallet-verify", {
-    walletAddress: address,
-    signature,
-    role
-  });
+    // 3. Verify on backend and retrieve signed JWT session
+    const verifyRes = await api.post("/auth/wallet-verify", {
+      walletAddress: address,
+      signature,
+      role
+    });
 
-  return {
-    address,
-    ...verifyRes.data
-  };
+    return {
+      address,
+      ...verifyRes.data
+    };
+  } catch (err) {
+    const backendMsg = err.response?.data?.message;
+    if (backendMsg) {
+      throw new Error(backendMsg);
+    }
+    throw err;
+  }
 }
 
 /**

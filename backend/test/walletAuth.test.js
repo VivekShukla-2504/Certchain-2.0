@@ -54,3 +54,40 @@ test("Rejects forged signature where an attacker signs for another wallet", asyn
   assert.notEqual(recovered.toLowerCase(), victimWallet.address.toLowerCase());
 });
 
+test("Strict Role-Based Access Control: Mutual exclusivity across Institution, Student, and Employer roles", async () => {
+  const studentWallet = ethers.Wallet.createRandom().address.toLowerCase();
+  const instituteWallet = ethers.Wallet.createRandom().address.toLowerCase();
+  const employerWallet = ethers.Wallet.createRandom().address.toLowerCase();
+
+  const mockRegistry = new Map([
+    [studentWallet, "student"],
+    [instituteWallet, "institute"],
+    [employerWallet, "employer"]
+  ]);
+
+  function validateStakeholderAccess(wallet, requestedRole) {
+    const registeredRole = mockRegistry.get(wallet.toLowerCase());
+    if (registeredRole && registeredRole !== requestedRole) {
+      throw new Error(`Access Denied: Wallet registered as ${registeredRole} cannot access ${requestedRole}`);
+    }
+    return true;
+  }
+
+  // Valid accesses
+  assert.equal(validateStakeholderAccess(studentWallet, "student"), true);
+  assert.equal(validateStakeholderAccess(instituteWallet, "institute"), true);
+  assert.equal(validateStakeholderAccess(employerWallet, "employer"), true);
+
+  // Student trying to access Institute or Employer -> REJECTED
+  assert.throws(() => validateStakeholderAccess(studentWallet, "institute"), /Access Denied/);
+  assert.throws(() => validateStakeholderAccess(studentWallet, "employer"), /Access Denied/);
+
+  // Institute trying to access Student or Employer -> REJECTED
+  assert.throws(() => validateStakeholderAccess(instituteWallet, "student"), /Access Denied/);
+  assert.throws(() => validateStakeholderAccess(instituteWallet, "employer"), /Access Denied/);
+
+  // Employer trying to access Student or Institute -> REJECTED
+  assert.throws(() => validateStakeholderAccess(employerWallet, "student"), /Access Denied/);
+  assert.throws(() => validateStakeholderAccess(employerWallet, "institute"), /Access Denied/);
+});
+

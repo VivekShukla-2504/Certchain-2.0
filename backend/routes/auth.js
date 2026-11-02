@@ -5,10 +5,84 @@ const crypto = require("crypto");
 const { ethers } = require("ethers");
 const Institution = require("../models/Institution");
 const Student = require("../models/Student");
+const Certificate = require("../models/Certificate");
+const VerificationRequest = require("../models/VerificationRequest");
+const Employer = require("../models/Employer");
 const { readString } = require("../utils/validation");
 const { sendEmailMessage } = require("../utils/mailer");
 
 const router = express.Router();
+
+/**
+ * Strict Multi-Stakeholder Role Registry Lookup
+ * Determines if a given Ethereum wallet address belongs to an Institution, a Student, or an Employer.
+ */
+async function getWalletStakeholderRole(cleanWallet) {
+  if (!cleanWallet) return null;
+  const regex = new RegExp("^" + cleanWallet + "$", "i");
+
+  // 1. Check if registered to an Academic Institution
+  const institution = await Institution.findOne({ walletAddress: { $regex: regex } }).lean();
+  if (institution) {
+    return {
+      role: "institute",
+      displayName: "Academic Institution",
+      name: institution.name,
+      id: institution.institutionId
+    };
+  }
+  const certIssuer = await Certificate.findOne({ issuerWallet: { $regex: regex } }).lean();
+  if (certIssuer) {
+    return {
+      role: "institute",
+      displayName: "Academic Institution",
+      name: certIssuer.institutionId,
+      id: certIssuer.institutionId
+    };
+  }
+
+  // 2. Check if registered to a Student
+  const student = await Student.findOne({ walletAddress: { $regex: regex } }).lean();
+  if (student) {
+    return {
+      role: "student",
+      displayName: "Student / Credential Owner",
+      name: student.fullName,
+      id: student.enrollmentNumber
+    };
+  }
+  const certStudent = await Certificate.findOne({ studentWallet: { $regex: regex } }).lean();
+  if (certStudent) {
+    return {
+      role: "student",
+      displayName: "Student / Credential Owner",
+      name: certStudent.candidateName,
+      id: certStudent.rollNumber
+    };
+  }
+
+  // 3. Check if registered to an Employer / Recruiter
+  const employer = await Employer.findOne({ walletAddress: { $regex: regex } }).lean();
+  if (employer) {
+    return {
+      role: "employer",
+      displayName: "Employer / Recruiter",
+      name: employer.companyName,
+      id: employer.walletAddress
+    };
+  }
+  const verReq = await VerificationRequest.findOne({ employerWallet: { $regex: regex } }).lean();
+  if (verReq) {
+    return {
+      role: "employer",
+      displayName: "Employer / Recruiter",
+      name: verReq.employerName || "Verified Employer",
+      id: verReq.employerWallet
+    };
+  }
+
+  return null;
+}
 
 // In-memory challenge store with 5-minute TTL for cryptographic authentication
 const walletChallenges = new Map();
@@ -111,8 +185,21 @@ router.post("/login", async (req, res) => {
 });
 
 
+// GET /api/auth/wallet-role - Inspect stakeholder role mapping for a given wallet
+router.get("/wallet-role", async (req, res) => {
+  const address = req.query.address;
+  if (!address || typeof address !== "string" || !ethers.isAddress(address)) {
+    return res.status(400).json({ message: "Valid Ethereum address is required" });
+  }
+  const roleInfo = await getWalletStakeholderRole(address.toLowerCase());
+  res.json({
+    walletAddress: address.toLowerCase(),
+    roleInfo
+  });
+});
+
 // GET /api/auth/wallet-challenge - Issue a cryptographic authentication challenge
-router.get("/wallet-challenge", (req, res) => {
+router.get("/wallet-challenge", async (req, res) => {
   const address = req.query.address;
   const role = req.query.role || "institute";
   if (!address || typeof address !== "string" || !ethers.isAddress(address)) {
@@ -120,6 +207,20 @@ router.get("/wallet-challenge", (req, res) => {
   }
 
   const cleanAddress = address.toLowerCase();
+
+  // Strict Role-Based Access Control: ensure wallet doesn't belong to another role
+  const existingRole = await getWalletStakeholderRole(cleanAddress);
+  if (existingRole && existingRole.role !== role) {
+    const roleLabels = {
+      institute: "Academic Institution",
+      student: "Student / Credential Owner",
+      employer: "Employer / Recruiter"
+    };
+    return res.status(403).json({
+      message: `Access Denied (Role-Based Access Control): This wallet (${address}) is already registered as a ${existingRole.displayName}. You cannot sign in to the ${roleLabels[role] || role} portal with this account. Please switch your MetaMask account.`
+    });
+  }
+
   const nonce = crypto.randomBytes(16).toString("hex");
   const timestamp = new Date().toISOString();
   const challenge = `Welcome to CertChain Web3 Authentication!\n\nSign this message with your MetaMask wallet to cryptographically verify ownership.\n\nStakeholder Role: ${role.toUpperCase()}\nWallet Address: ${address}\nNetwork: Ethereum Sepolia (Chain ID: 11155111)\nNonce: ${nonce}\nTimestamp: ${timestamp}`;
@@ -142,7 +243,7 @@ router.get("/wallet-challenge", (req, res) => {
 // POST /api/auth/wallet-verify - Cryptographically verify signature and authenticate stakeholder
 router.post("/wallet-verify", async (req, res) => {
   try {
-    const { walletAddress, signature, role = "institute" } = req.body;
+    const { walletAddress, signature, role = "institute", employerName } = req.body;
     if (!walletAddress || !signature) {
       return res.status(400).json({ message: "Wallet address and signature are required" });
     }
@@ -152,6 +253,20 @@ router.post("/wallet-verify", async (req, res) => {
     }
 
     const cleanWallet = walletAddress.toLowerCase();
+
+    // Strict Role-Based Access Control: ensure wallet doesn't belong to another role
+    const existingRole = await getWalletStakeholderRole(cleanWallet);
+    if (existingRole && existingRole.role !== role) {
+      const roleLabels = {
+        institute: "Academic Institution",
+        student: "Student / Credential Owner",
+        employer: "Employer / Recruiter"
+      };
+      return res.status(403).json({
+        message: `Access Denied (Role-Based Access Control): This wallet (${walletAddress}) is already registered as a ${existingRole.displayName}. You cannot sign in to the ${roleLabels[role] || role} portal with this account. Please switch your MetaMask account.`
+      });
+    }
+
     const challengeData = walletChallenges.get(cleanWallet);
 
     if (!challengeData || challengeData.expiresAt < Date.now()) {
@@ -182,10 +297,6 @@ router.post("/wallet-verify", async (req, res) => {
       let institution = await Institution.findOne({
         walletAddress: { $regex: new RegExp("^" + cleanWallet + "$", "i") }
       });
-
-      if (!institution && cleanWallet === "0x8a8edfb602aa8d7479160bc42815b6271d4b70b3") {
-        institution = await Institution.findOne({ institutionId: "JNU2026" }) || await Institution.findOne({});
-      }
 
       if (!institution) {
         return res.status(404).json({
@@ -273,6 +384,13 @@ router.post("/wallet-verify", async (req, res) => {
 
     // Employer Stakeholder (Self-sovereign Web3 Recruiter Identity)
     if (role === "employer") {
+      // Record employer wallet in Employer registry
+      await Employer.findOneAndUpdate(
+        { walletAddress: cleanWallet },
+        { walletAddress: cleanWallet, companyName: employerName || "Verified Employer / Recruiter" },
+        { upsert: true, new: true }
+      );
+
       const token = jwt.sign(
         {
           walletAddress: cleanWallet,

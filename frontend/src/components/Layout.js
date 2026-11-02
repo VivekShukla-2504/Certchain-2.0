@@ -69,7 +69,22 @@ export function PublicHeader() {
 
     if (typeof window !== "undefined" && window.ethereum) {
       const handleAccountsChanged = (accounts) => {
-        if (active) setWalletAddress(accounts[0] || "");
+        if (!active) return;
+        const newAddr = (accounts[0] || "").toLowerCase();
+        setWalletAddress(accounts[0] || "");
+
+        // Role-Based Access Control: auto-logout on account change if session wallet mismatches
+        const currentInstWallet = (institution?.walletAddress || "").toLowerCase();
+        const currentStudentWallet = (localStorage.getItem("certchain_student_wallet") || student?.walletAddress || "").toLowerCase();
+        const currentEmployerWallet = (localStorage.getItem("certchain_employer_wallet") || "").toLowerCase();
+
+        if (isInstituteAuth && currentInstWallet && newAddr && newAddr !== currentInstWallet) {
+          handleLogout();
+        } else if (isStudentAuth && currentStudentWallet && newAddr && newAddr !== currentStudentWallet) {
+          handleLogout();
+        } else if (isEmployerAuth && currentEmployerWallet && newAddr && newAddr !== currentEmployerWallet) {
+          handleLogout();
+        }
       };
       window.ethereum.on("accountsChanged", handleAccountsChanged);
       return () => {

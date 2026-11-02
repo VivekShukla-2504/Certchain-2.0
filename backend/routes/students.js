@@ -1,6 +1,8 @@
 const express = require("express");
 const { ethers } = require("ethers");
 const Student = require("../models/Student");
+const Institution = require("../models/Institution");
+const Employer = require("../models/Employer");
 const Certificate = require("../models/Certificate");
 const { requireAuth, requireRole, verifyToken } = require("../middleware/auth");
 const { recordAuditEvent } = require("../utils/audit");
@@ -82,6 +84,25 @@ router.post("/", requireAuth, requireRole("admin", "issuer"), async (req, res) =
       if (existing.enrollmentNumber === cleanEnrollment) {
         return res.status(409).json({ message: `Enrollment number "${enrollmentNumber}" is already registered` });
       }
+    }
+
+    // 2b. Strict Role-Based Access Control: ensure wallet is not an Institution or Employer wallet
+    const isInst = await Institution.exists({
+      walletAddress: { $regex: new RegExp("^" + cleanWallet + "$", "i") }
+    });
+    if (isInst) {
+      return res.status(400).json({
+        message: "Role conflict: This wallet address is already registered to an Academic Institution. Student wallets must be independent."
+      });
+    }
+
+    const isEmp = await Employer.exists({
+      walletAddress: { $regex: new RegExp("^" + cleanWallet + "$", "i") }
+    });
+    if (isEmp) {
+      return res.status(400).json({
+        message: "Role conflict: This wallet address is registered to an Employer. Student wallets must be independent."
+      });
     }
 
     // 3. Create Student

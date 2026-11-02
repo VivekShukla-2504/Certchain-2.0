@@ -39,6 +39,7 @@ export default function Verify() {
   const [employerWallet, setEmployerWallet] = useState(() => localStorage.getItem("certchain_employer_wallet") || "");
   const [isSepolia, setIsSepolia] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [isEmployerAuthenticated, setIsEmployerAuthenticated] = useState(() => {
     return localStorage.getItem("certchain_role") === "employer" && !!localStorage.getItem("certchain_token");
   });
@@ -155,6 +156,7 @@ export default function Verify() {
   // Web3 Cryptographic Wallet Authentication for Recruiter Workspace
   async function handleSignInWithEmployerWallet() {
     setConnectingWallet(true);
+    setAuthError("");
     try {
       await ensureSepoliaNetwork();
       const auth = await authenticateStakeholderWallet("employer");
@@ -177,7 +179,7 @@ export default function Verify() {
         checkStatus(targetCert);
       }
     } catch (err) {
-      alert("Employer Web3 Authentication failed: " + err.message);
+      setAuthError(err.message || "Employer Web3 Authentication failed");
     } finally {
       setConnectingWallet(false);
     }
@@ -441,6 +443,12 @@ export default function Verify() {
           <p style={{ color: "#64748b", fontSize: "0.95rem", lineHeight: 1.6, maxWidth: 500, margin: "0 auto 2rem" }}>
             To safeguard student privacy and verify credential authenticity, employers and recruiters must sign in using their Web3 wallet.
           </p>
+
+          {authError && (
+            <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
+              <Alert variant="danger">{authError}</Alert>
+            </div>
+          )}
 
           <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
             <Button

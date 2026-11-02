@@ -67,7 +67,7 @@ export default function StudentPortal() {
       setCertificates(res.data.certificates || []);
       if (res.data.student) {
         setStudentProfile(res.data.student);
-        localStorage.setItem("certchain_student", JSON.stringify(res.data.student));
+        // Do NOT set localStorage on read search — prevents role leakage
       }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load student credentials");
@@ -84,6 +84,12 @@ export default function StudentPortal() {
     try {
       await ensureSepoliaNetwork();
       const auth = await authenticateStakeholderWallet("student");
+      // Clean up other stakeholder sessions
+      localStorage.removeItem("certchain_institution");
+      localStorage.removeItem("certchain_employer_wallet");
+      localStorage.removeItem("certchain_employer_name");
+      localStorage.removeItem("certchain_employer_email");
+
       localStorage.setItem("certchain_token", auth.token);
       localStorage.setItem("certchain_role", "student");
       localStorage.setItem("certchain_student_wallet", auth.walletAddress);
@@ -107,6 +113,10 @@ export default function StudentPortal() {
 
   function handleLogout() {
     disconnectWallet();
+    localStorage.removeItem("certchain_token");
+    localStorage.removeItem("certchain_role");
+    localStorage.removeItem("certchain_student");
+    localStorage.removeItem("certchain_student_wallet");
     setWalletAddress("");
     setStudentProfile(null);
     setIsWalletAuthenticated(false);

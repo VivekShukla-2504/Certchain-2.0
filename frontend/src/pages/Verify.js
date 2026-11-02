@@ -158,6 +158,11 @@ export default function Verify() {
     try {
       await ensureSepoliaNetwork();
       const auth = await authenticateStakeholderWallet("employer");
+      // Clean up any stale sessions from other roles
+      localStorage.removeItem("certchain_institution");
+      localStorage.removeItem("certchain_student");
+      localStorage.removeItem("certchain_student_wallet");
+
       localStorage.setItem("certchain_token", auth.token);
       localStorage.setItem("certchain_role", "employer");
       localStorage.setItem("certchain_employer_wallet", auth.walletAddress);
@@ -180,6 +185,9 @@ export default function Verify() {
 
   function handleEmployerLogout() {
     disconnectWallet();
+    localStorage.removeItem("certchain_token");
+    localStorage.removeItem("certchain_role");
+    localStorage.removeItem("certchain_employer_wallet");
     setEmployerWallet("");
     setIsEmployerAuthenticated(false);
     setEmployerRequests([]);

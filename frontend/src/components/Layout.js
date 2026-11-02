@@ -37,13 +37,23 @@ export function PublicHeader() {
   })();
   const role = localStorage.getItem("certchain_role");
   const token = localStorage.getItem("certchain_token");
-  const isStudentAuth = (role === "student" || !!student) && !!token;
+
+  // Strictly mutually exclusive role authentication:
   const isEmployerAuth = role === "employer" && !!token;
-  const isInstituteAuth = !!institution && !!token;
+  const isStudentAuth = role === "student" && !!token;
+  const isInstituteAuth = (role === "institution" || role === "admin" || role === "issuer") && !!token && !!institution;
   const isAuthenticated = isInstituteAuth || isStudentAuth || isEmployerAuth;
 
   function handleLogout() {
     disconnectWallet();
+    localStorage.removeItem("certchain_token");
+    localStorage.removeItem("certchain_role");
+    localStorage.removeItem("certchain_institution");
+    localStorage.removeItem("certchain_student");
+    localStorage.removeItem("certchain_student_wallet");
+    localStorage.removeItem("certchain_employer_wallet");
+    localStorage.removeItem("certchain_employer_name");
+    localStorage.removeItem("certchain_employer_email");
     window.location.reload();
   }
 
@@ -295,7 +305,16 @@ export function AppSidebar({ mobileOpen, onClose }) {
         <div className="sidebar-footer">
           <div className="chain-status"><span className="status-dot" /> Sepolia Connected</div>
           <div className="sidebar-profile"><span className="profile-avatar">{initials}</span><span><strong>{institution?.name || "Institution admin"}</strong><small>{institution?.institutionId || "Account"}</small></span></div>
-          <button className="sidebar-logout" onClick={() => { localStorage.removeItem("certchain_token"); localStorage.removeItem("certchain_institution"); window.location.href = "/verify"; }}>Sign out</button>
+          <button className="sidebar-logout" onClick={() => {
+            disconnectWallet();
+            localStorage.removeItem("certchain_token");
+            localStorage.removeItem("certchain_role");
+            localStorage.removeItem("certchain_institution");
+            localStorage.removeItem("certchain_student");
+            localStorage.removeItem("certchain_student_wallet");
+            localStorage.removeItem("certchain_employer_wallet");
+            window.location.href = "/login";
+          }}>Sign out</button>
         </div>
       </aside>
     </>
@@ -328,5 +347,21 @@ export function AuthenticatedLayout({ children }) {
 }
 
 export function SignOutButton() {
-  return <Button variant="quiet" onClick={() => { localStorage.removeItem("certchain_token"); localStorage.removeItem("certchain_institution"); window.location.href = "/verify"; }}>Sign out</Button>;
+  return (
+    <Button
+      variant="quiet"
+      onClick={() => {
+        disconnectWallet();
+        localStorage.removeItem("certchain_token");
+        localStorage.removeItem("certchain_role");
+        localStorage.removeItem("certchain_institution");
+        localStorage.removeItem("certchain_student");
+        localStorage.removeItem("certchain_student_wallet");
+        localStorage.removeItem("certchain_employer_wallet");
+        window.location.href = "/login";
+      }}
+    >
+      Sign out
+    </Button>
+  );
 }

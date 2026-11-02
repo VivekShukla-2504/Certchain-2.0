@@ -50,16 +50,23 @@ function discloseCertificate(fields, publicFields) {
 router.post("/request", receivePdf, async (req, res) => {
   try {
     const { certId, employerName, employerWallet, employerEmail } = req.body;
-    const certIdError = readString(certId, "Certificate ID", { max: 80, pattern: /^[A-Za-z0-9_-]+$/ });
+    const certIdError = readString(certId, "Certificate ID or Roll Number", { max: 80, pattern: /^[A-Za-z0-9_.-]+$/ });
     if (certIdError) return res.status(400).json({ message: certIdError });
 
-    const normalizedId = certId.trim().toUpperCase();
-    const stored = await Certificate.findOne({ certId: normalizedId });
+    const rawInput = certId.trim();
+    const normalizedId = rawInput.toUpperCase();
+    const stored = await Certificate.findOne({
+      $or: [
+        { certId: normalizedId },
+        { rollNumber: new RegExp("^" + rawInput.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i") }
+      ]
+    });
+    const effectiveCertId = stored?.certId || normalizedId;
     
     // Also read on-chain Sepolia record
     let onChainRecord = null;
     try {
-      onChainRecord = await getRecordOnChain(normalizedId);
+      onChainRecord = await getRecordOnChain(effectiveCertId);
     } catch (e) {
       // Offline fallback
     }
@@ -67,7 +74,7 @@ router.post("/request", receivePdf, async (req, res) => {
     if (!stored && (!onChainRecord || onChainRecord.issuedAt === 0)) {
       return res.status(404).json({
         status: "NOT_FOUND",
-        message: "No certificate found matching ID " + normalizedId + " on Ethereum Sepolia."
+        message: "No certificate found matching ID/Roll Number " + rawInput + " on Ethereum Sepolia."
       });
     }
 
@@ -197,20 +204,27 @@ router.post("/request", receivePdf, async (req, res) => {
 // GET /api/verify/status/:certId - Employer checks if Institute has verified/approved
 router.get("/status/:certId", async (req, res) => {
   try {
-    const normalizedId = req.params.certId.trim().toUpperCase();
-    const stored = await Certificate.findOne({ certId: normalizedId });
+    const rawInput = req.params.certId.trim();
+    const normalizedId = rawInput.toUpperCase();
+    const stored = await Certificate.findOne({
+      $or: [
+        { certId: normalizedId },
+        { rollNumber: new RegExp("^" + rawInput.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i") }
+      ]
+    });
+    const effectiveCertId = stored?.certId || normalizedId;
     
     // Check Sepolia on-chain record as well
     let onChainRecord = {};
     try {
-      onChainRecord = await getRecordOnChain(normalizedId);
+      onChainRecord = await getRecordOnChain(effectiveCertId);
     } catch (e) {}
 
     if (!stored && (!onChainRecord || onChainRecord.issuedAt === 0)) {
       return res.status(404).json({
         approved: false,
         status: "not_found",
-        message: "No certificate record found matching " + normalizedId + " on Ethereum Sepolia."
+        message: "No certificate record found matching " + rawInput + " on Ethereum Sepolia."
       });
     }
 
@@ -221,7 +235,7 @@ router.get("/status/:certId", async (req, res) => {
         status: "revoked",
         verified: false,
         revoked: true,
-        certId: normalizedId,
+        certId: effectiveCertId,
         institutionId: stored?.institutionId || onChainRecord?.institutionId,
         candidateName: stored?.candidateName || "Student",
         course: stored?.course || "Academic Credential",
@@ -260,7 +274,7 @@ router.get("/status/:certId", async (req, res) => {
     }
 
     if (conditions.length > 0) {
-      const query = { certId: normalizedId, ...(conditions.length > 1 ? { $or: conditions } : conditions[0]) };
+      const query = { certId: effectiveCertId, ...(conditions.length > 1 ? { $or: conditions } : conditions[0]) };
       callerRequest = await VerificationRequest.findOne(query).sort({ requestedAt: -1 }).lean();
     }
 

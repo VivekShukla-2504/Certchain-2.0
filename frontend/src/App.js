@@ -15,16 +15,19 @@ import NotFound from "./pages/NotFound";
 import { AuthenticatedLayout, PublicHeader } from "./components/Layout";
 import { ThemeContext } from "./components/UI";
 
-function isLoggedIn() {
-  return !!localStorage.getItem("certchain_token");
+function isInstitutionLoggedIn() {
+  const token = localStorage.getItem("certchain_token");
+  const role = localStorage.getItem("certchain_role");
+  const hasInst = !!localStorage.getItem("certchain_institution");
+  return !!token && (role === "institution" || role === "admin" || role === "issuer" || (hasInst && role !== "employer" && role !== "student"));
 }
 
 function PrivateRoute({ children }) {
-  return isLoggedIn() ? children : <Navigate to="/login" replace />;
+  return isInstitutionLoggedIn() ? children : <Navigate to="/login" replace />;
 }
 
 function VerifyRoute() {
-  return isLoggedIn() ? <AuthenticatedLayout><Verify /></AuthenticatedLayout> : <><PublicHeader /><Verify /></>;
+  return <><PublicHeader /><Verify /></>;
 }
 
 function PublicCertificateRoute() {

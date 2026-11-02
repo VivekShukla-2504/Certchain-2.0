@@ -34,7 +34,12 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.post("/auth/login", { email, password });
+      localStorage.removeItem("certchain_student");
+      localStorage.removeItem("certchain_student_wallet");
+      localStorage.removeItem("certchain_employer_wallet");
+
       localStorage.setItem("certchain_token", res.data.token);
+      localStorage.setItem("certchain_role", res.data.institution?.role || "institution");
       localStorage.setItem("certchain_institution", JSON.stringify(res.data.institution));
       navigate(res.data.institution.role === "reviewer" ? "/certificates" : "/dashboard");
     } catch (err) {
@@ -78,7 +83,12 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.post("/auth/verify-login-otp", { email: email.trim(), otp: otp.trim() });
+      localStorage.removeItem("certchain_student");
+      localStorage.removeItem("certchain_student_wallet");
+      localStorage.removeItem("certchain_employer_wallet");
+
       localStorage.setItem("certchain_token", res.data.token);
+      localStorage.setItem("certchain_role", res.data.institution?.role || "institution");
       localStorage.setItem("certchain_institution", JSON.stringify(res.data.institution));
       navigate(res.data.institution.role === "reviewer" ? "/certificates" : "/dashboard");
     } catch (err) {
@@ -94,7 +104,12 @@ export default function Login() {
     setWalletLoading(true);
     try {
       const auth = await authenticateStakeholderWallet("institute");
+      localStorage.removeItem("certchain_student");
+      localStorage.removeItem("certchain_student_wallet");
+      localStorage.removeItem("certchain_employer_wallet");
+
       localStorage.setItem("certchain_token", auth.token);
+      localStorage.setItem("certchain_role", auth.institution?.role || "institution");
       localStorage.setItem("certchain_institution", JSON.stringify(auth.institution));
       navigate(auth.institution?.role === "reviewer" ? "/certificates" : "/dashboard");
     } catch (err) {

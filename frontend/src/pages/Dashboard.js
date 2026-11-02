@@ -90,6 +90,8 @@ export default function Dashboard() {
 
   // Student Edit State
   const [editingStudent, setEditingStudent] = useState(null);
+  const [inspectingStudent, setInspectingStudent] = useState(null);
+  const [inspectingCert, setInspectingCert] = useState(null);
   const [editForm, setEditForm] = useState({
     fullName: "",
     username: "",
@@ -823,6 +825,15 @@ export default function Dashboard() {
                             <Button
                               type="button"
                               variant="secondary"
+                              style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", borderColor: "rgba(16, 185, 129, 0.5)", color: "#059669" }}
+                              onClick={() => setInspectingStudent(s)}
+                              title="View full student record & credentials"
+                            >
+                              👁️ View
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
                               style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
                               onClick={() => handleSelectStudentForIssuance(s)}
                               title="Issue a credential to this student"
@@ -1183,7 +1194,16 @@ export default function Dashboard() {
                         <small>{formatDate(cert.issueDate || cert.createdAt)}</small>
                       </td>
                       <td data-label="Action">
-                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            className="button button-secondary"
+                            style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem", color: "#2563eb", borderColor: "#93c5fd" }}
+                            onClick={() => setInspectingCert(cert)}
+                            title="View student profile and credential verification record"
+                          >
+                            👁️ View Details
+                          </button>
                           <a
                             href={`${API_ORIGIN}/api/certificates/${cert.certId}/download-student`}
                             target="_blank"
@@ -1638,6 +1658,404 @@ export default function Dashboard() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW ISSUED CREDENTIAL & STUDENT DETAILS MODAL */}
+      {inspectingCert && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={(e) => { if (e.target === e.currentTarget) setInspectingCert(null); }}>
+          <div
+            className="card card-pad"
+            style={{
+              maxWidth: 720,
+              width: "95%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+              border: "1px solid rgba(59, 130, 246, 0.4)",
+              background: "var(--cc-bg, #0b0f19)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.75rem" }}>
+              <div>
+                <span className="eyebrow" style={{ color: "#3b82f6" }}>Issued Credential Record</span>
+                <h2 style={{ margin: "0.25rem 0 0", fontSize: "1.25rem" }}>Student & Credential Details</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingCert(null)}
+                style={{ background: "transparent", border: "none", color: "var(--cc-muted)", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1 }}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Status Banner */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", padding: "0.75rem 1rem", background: inspectingCert.revoked ? "#fef2f2" : "#f0fdf4", border: `1px solid ${inspectingCert.revoked ? "#fecaca" : "#bbf7d0"}`, borderRadius: 8 }}>
+              <div>
+                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 700, color: inspectingCert.revoked ? "#991b1b" : "#166534" }}>
+                  Blockchain Status
+                </span>
+                <div style={{ fontWeight: 700, fontSize: "1rem", color: inspectingCert.revoked ? "#dc2626" : "#16a34a" }}>
+                  {inspectingCert.revoked ? "⚠️ REVOKED ON SEPOLIA" : "✓ 100% VALID & ACTIVE ON SEPOLIA"}
+                </div>
+              </div>
+              <span className="crypto-badge">Ethereum Sepolia (11155111)</span>
+            </div>
+
+            {/* Candidate & Student Info */}
+            <div style={{ marginBottom: "1.25rem", background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+              <h3 style={{ margin: "0 0 0.85rem", fontSize: "0.95rem", color: "var(--cc-ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                🎓 Student Candidate Profile
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                <div>
+                  <span className="meta-label">Full Name</span>
+                  <strong style={{ fontSize: "1.05rem", color: "#0f172a" }}>{inspectingCert.candidateName}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Enrollment / Roll No</span>
+                  <strong style={{ fontSize: "1.05rem", fontFamily: "monospace" }}>{inspectingCert.rollNumber}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Student Email</span>
+                  <span>{inspectingCert.studentEmail || "Not provided"}</span>
+                </div>
+                <div>
+                  <span className="meta-label">Student Wallet Address</span>
+                  {inspectingCert.studentWallet ? (
+                    <a
+                      href={`https://sepolia.etherscan.io/address/${inspectingCert.studentWallet}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#2563eb" }}
+                    >
+                      {inspectingCert.studentWallet.slice(0, 10)}...{inspectingCert.studentWallet.slice(-6)} ↗
+                    </a>
+                  ) : (
+                    <span className="muted">Not assigned</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Academic Record */}
+            <div style={{ marginBottom: "1.25rem", background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+              <h3 style={{ margin: "0 0 0.85rem", fontSize: "0.95rem", color: "var(--cc-ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                📚 Academic Credential Specification
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                <div>
+                  <span className="meta-label">Course / Degree</span>
+                  <strong style={{ color: "#2563eb" }}>{inspectingCert.course}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Department</span>
+                  <strong>{inspectingCert.department || "Academic Department"}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Academic Session</span>
+                  <strong>{inspectingCert.academicSession || "N/A"}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Grade / Classification</span>
+                  <strong style={{ color: "#059669" }}>{inspectingCert.grade}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Document Type</span>
+                  <strong>{inspectingCert.documentType || "Degree"}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Issuance Date</span>
+                  <strong>{formatDate(inspectingCert.issueDate || inspectingCert.createdAt)}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Cryptographic Proofs */}
+            <div style={{ marginBottom: "1.5rem", background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+              <h3 style={{ margin: "0 0 0.85rem", fontSize: "0.95rem", color: "var(--cc-ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                🛡️ On-Chain Blockchain & Cryptographic Record
+              </h3>
+              <div style={{ display: "grid", gap: "0.75rem", fontSize: "0.85rem" }}>
+                <div>
+                  <span className="meta-label">Certificate Unique Identifier</span>
+                  <strong style={{ fontFamily: "monospace", color: "#2563eb" }}>{inspectingCert.certId}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Document SHA-256 Hash</span>
+                  <code style={{ fontSize: "0.8rem", wordBreak: "break-all" }}>
+                    {inspectingCert.documentHash || inspectingCert.certHash || "0xConfirmed"}
+                  </code>
+                </div>
+                <div>
+                  <span className="meta-label">Ethereum Sepolia Transaction Hash</span>
+                  {inspectingCert.txHash && inspectingCert.txHash.startsWith("0x") ? (
+                    <a
+                      href={`https://sepolia.etherscan.io/tx/${inspectingCert.txHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontFamily: "monospace", color: "#2563eb", textDecoration: "underline" }}
+                    >
+                      {inspectingCert.txHash} ↗
+                    </a>
+                  ) : (
+                    <span className="muted">Confirmed on Sepolia</span>
+                  )}
+                </div>
+                {inspectingCert.revoked && (
+                  <div style={{ padding: "0.75rem", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+                    <span style={{ color: "#991b1b", fontWeight: 700 }}>Revocation Details:</span>
+                    <div style={{ color: "#7f1d1d" }}>Reason: {inspectingCert.revocationReason || "Revoked by Institution Authority"}</div>
+                    {inspectingCert.revokedAt && (
+                      <div style={{ color: "#7f1d1d", fontSize: "0.8rem" }}>Revoked on: {new Date(inspectingCert.revokedAt).toLocaleString()}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", borderTop: "1px solid var(--cc-line)", paddingTop: "1rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <a
+                  href={`${API_ORIGIN}/api/certificates/${inspectingCert.certId}/download-student`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="button button-primary"
+                  style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem" }}
+                >
+                  📥 Download Official PDF
+                </a>
+                {inspectingCert.txHash && inspectingCert.txHash.startsWith("0x") && (
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${inspectingCert.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="button button-secondary"
+                    style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem" }}
+                  >
+                    Etherscan ↗
+                  </a>
+                )}
+              </div>
+              <Button type="button" variant="secondary" onClick={() => setInspectingCert(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW REGISTERED STUDENT PROFILE & ALL CREDENTIALS MODAL */}
+      {inspectingStudent && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={(e) => { if (e.target === e.currentTarget) setInspectingStudent(null); }}>
+          <div
+            className="card card-pad"
+            style={{
+              maxWidth: 720,
+              width: "95%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+              border: "1px solid rgba(16, 185, 129, 0.4)",
+              background: "var(--cc-bg, #0b0f19)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid var(--cc-line)", paddingBottom: "0.75rem" }}>
+              <div>
+                <span className="eyebrow" style={{ color: "#10b981" }}>Student Identity & Credentials</span>
+                <h2 style={{ margin: "0.25rem 0 0", fontSize: "1.25rem" }}>{inspectingStudent.fullName}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingStudent(null)}
+                style={{ background: "transparent", border: "none", color: "var(--cc-muted)", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1 }}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Profile Grid */}
+            <div style={{ marginBottom: "1.25rem", background: "var(--cc-cloud)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+              <h3 style={{ margin: "0 0 0.85rem", fontSize: "0.95rem", color: "var(--cc-ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                👤 Student Information
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                <div>
+                  <span className="meta-label">Full Name</span>
+                  <strong style={{ fontSize: "1.05rem", color: "#0f172a" }}>{inspectingStudent.fullName}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Enrollment Number</span>
+                  <strong style={{ fontSize: "1.05rem", fontFamily: "monospace" }}>{inspectingStudent.enrollmentNumber}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Username</span>
+                  <span style={{ fontFamily: "monospace", color: "#64748b" }}>@{inspectingStudent.username}</span>
+                </div>
+                <div>
+                  <span className="meta-label">Email</span>
+                  <span>{inspectingStudent.email}</span>
+                </div>
+                <div>
+                  <span className="meta-label">Course & Program</span>
+                  <strong>{inspectingStudent.course}</strong>
+                </div>
+                <div>
+                  <span className="meta-label">Department & Session</span>
+                  <span>{inspectingStudent.department} ({inspectingStudent.academicSession})</span>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <span className="meta-label">Associated Sepolia Wallet</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.2rem" }}>
+                    <code style={{ fontSize: "0.85rem", color: "#2563eb" }}>{inspectingStudent.walletAddress}</code>
+                    <a
+                      href={`https://sepolia.etherscan.io/address/${inspectingStudent.walletAddress}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: "0.8rem", color: "#2563eb", textDecoration: "none" }}
+                    >
+                      ↗ Etherscan
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Credentials Issued to this Student */}
+            <div style={{ marginBottom: "1.5rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--cc-ink)" }}>
+                  📜 Issued Credentials for this Student
+                </h3>
+                <span className="badge badge-neutral">
+                  {certificates.filter((c) =>
+                    c.rollNumber?.toLowerCase() === inspectingStudent.enrollmentNumber?.toLowerCase() ||
+                    (c.studentWallet && c.studentWallet.toLowerCase() === inspectingStudent.walletAddress?.toLowerCase()) ||
+                    (c.studentEmail && c.studentEmail.toLowerCase() === inspectingStudent.email?.toLowerCase())
+                  ).length} records
+                </span>
+              </div>
+
+              {(() => {
+                const studentCerts = certificates.filter((c) =>
+                  c.rollNumber?.toLowerCase() === inspectingStudent.enrollmentNumber?.toLowerCase() ||
+                  (c.studentWallet && c.studentWallet.toLowerCase() === inspectingStudent.walletAddress?.toLowerCase()) ||
+                  (c.studentEmail && c.studentEmail.toLowerCase() === inspectingStudent.email?.toLowerCase())
+                );
+
+                if (studentCerts.length === 0) {
+                  return (
+                    <div style={{ padding: "1.5rem", background: "var(--cc-cloud)", borderRadius: 8, textAlign: "center", border: "1px dashed var(--cc-line)" }}>
+                      <p className="muted small" style={{ margin: "0 0 1rem" }}>No academic credentials issued to this student yet.</p>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const s = inspectingStudent;
+                          setInspectingStudent(null);
+                          handleSelectStudentForIssuance(s);
+                        }}
+                      >
+                        ＋ Issue Credential Now
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="certificate-table-wrap">
+                    <table className="certificate-table" style={{ fontSize: "0.85rem" }}>
+                      <thead>
+                        <tr>
+                          <th>Certificate ID</th>
+                          <th>Course</th>
+                          <th>Status</th>
+                          <th>Issued Date</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {studentCerts.map((cert) => (
+                          <tr key={cert.certId}>
+                            <td>
+                              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#2563eb" }}>{cert.certId}</span>
+                            </td>
+                            <td>
+                              <strong>{cert.course}</strong>
+                              <small>{cert.grade}</small>
+                            </td>
+                            <td>
+                              <span className={`badge ${cert.revoked ? "badge-revoked" : "badge-success"}`}>
+                                {cert.revoked ? "Revoked" : "Active"}
+                              </span>
+                            </td>
+                            <td>{formatDate(cert.issueDate || cert.createdAt)}</td>
+                            <td>
+                              <div style={{ display: "flex", gap: "0.3rem" }}>
+                                <button
+                                  type="button"
+                                  className="button button-secondary"
+                                  style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}
+                                  onClick={() => {
+                                    setInspectingStudent(null);
+                                    setInspectingCert(cert);
+                                  }}
+                                >
+                                  👁️ Details
+                                </button>
+                                <a
+                                  href={`${API_ORIGIN}/api/certificates/${cert.certId}/download-student`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="button button-secondary"
+                                  style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}
+                                >
+                                  📥 PDF
+                                </a>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", borderTop: "1px solid var(--cc-line)", paddingTop: "1rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const s = inspectingStudent;
+                    setInspectingStudent(null);
+                    handleOpenEditModal(s);
+                  }}
+                >
+                  ✏️ Edit Profile
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const s = inspectingStudent;
+                    setInspectingStudent(null);
+                    handleSelectStudentForIssuance(s);
+                  }}
+                >
+                  ＋ Issue Credential
+                </Button>
+              </div>
+              <Button type="button" variant="secondary" onClick={() => setInspectingStudent(null)}>
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

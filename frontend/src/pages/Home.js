@@ -26,7 +26,7 @@ export default function Home() {
           rel="noreferrer"
           style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#38bdf8", textDecoration: "none", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}
         >
-          📜 Contract: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-4)} ↗
+          Contract: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-4)} ↗
         </a>
       </div>
 
@@ -40,19 +40,19 @@ export default function Home() {
           </p>
           <div className="home-actions" style={{ flexWrap: "wrap", gap: "0.75rem" }}>
             <Link className="button button-primary" to="/student" style={{ background: "#2563eb", fontWeight: 700 }}>
-              🎓 Student Vault
+              Student Vault
             </Link>
             <Link className="button button-primary" to="/verify" style={{ background: "#059669", fontWeight: 700 }}>
-              💼 Employer Verify
+              Employer Verification
             </Link>
             <Link className="button button-secondary" to="/dashboard" style={{ fontWeight: 600 }}>
-              🏛️ University Dashboard
+              Institution Dashboard
             </Link>
             <Link className="button button-secondary" to="/keys" style={{ fontWeight: 600 }}>
-              ⛓️ Sepolia Architecture
+              Sepolia Architecture
             </Link>
           </div>
-          <p className="home-note">No centralized trust needed — authenticated on-chain via OpenZeppelin AccessControl smart contracts.</p>
+          <p className="home-note">Zero centralized dependencies — authenticated on-chain via OpenZeppelin AccessControl smart contracts.</p>
         </div>
 
         <div className="home-proof-card" aria-label="Certificate verification preview">
@@ -71,9 +71,9 @@ export default function Home() {
           </div>
           <div className="proof-row">
             <span>Tamper Detection</span>
-            <strong className="proof-status" style={{ color: "#059669" }}>
-              <span className="status-dot" /> 🟢 NOT TAMPERED
-            </strong>
+            <span className="status-pill status-pill-success">
+              <span className="status-dot success" /> Cryptographically Authentic
+            </span>
           </div>
           <div className="proof-line" />
           <div className="proof-footer">
@@ -97,7 +97,9 @@ export default function Home() {
           {/* Card 1: Student */}
           <div className="card card-pad" style={{ borderTop: "4px solid #2563eb", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>🎓</div>
+              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "#eff6ff", color: "#2563eb", marginBottom: "0.75rem" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+              </div>
               <h3 style={{ margin: "0 0 0.5rem" }}>Student (Credential Owner)</h3>
               <p className="muted small" style={{ lineHeight: 1.6 }}>
                 Students enjoy <strong>Self-Sovereign Identity</strong>. Degrees are mapped directly to student wallet addresses on-chain (`studentCertificates[student]`), granting perpetual ownership without university hostage risks.
@@ -116,7 +118,9 @@ export default function Home() {
           {/* Card 2: Institute */}
           <div className="card card-pad" style={{ borderTop: "4px solid #7c3aed", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>🏛️</div>
+              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "#f5f3ff", color: "#7c3aed", marginBottom: "0.75rem" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M12 3l9 7H3z"/></svg>
+              </div>
               <h3 style={{ margin: "0 0 0.5rem" }}>Academic Institution (Issuer)</h3>
               <p className="muted small" style={{ lineHeight: 1.6 }}>
                 Universities hold <strong>`INSTITUTE_ROLE`</strong> enforced by OpenZeppelin AccessControl. Authorized issuers compute SHA-256 document commitments and pin decentralized PDFs to IPFS.
@@ -128,14 +132,16 @@ export default function Home() {
               </ul>
             </div>
             <Link to="/dashboard" className="button button-secondary" style={{ textAlign: "center", marginTop: "1rem" }}>
-              University Dashboard ↗
+              Institution Dashboard ↗
             </Link>
           </div>
 
           {/* Card 3: Employer */}
           <div className="card card-pad" style={{ borderTop: "4px solid #059669", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>💼</div>
+              <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "8px", background: "#ecfdf5", color: "#059669", marginBottom: "0.75rem" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              </div>
               <h3 style={{ margin: "0 0 0.5rem" }}>Employer / Recruiter (Verifier)</h3>
               <p className="muted small" style={{ lineHeight: 1.6 }}>
                 Employers execute <strong>Zero-Trust Auditing</strong>. Independent verification runs directly against the Ethereum EVM node with zero backend server or database dependency.
@@ -156,10 +162,10 @@ export default function Home() {
       {/* Why Blockchain vs Traditional DB Comparison */}
       <section className="card card-pad" style={{ marginBottom: "3rem", background: "#f8fafc", border: "1px solid #cbd5e1" }}>
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem", textAlign: "center" }}>
-          ⚖️ Why Ethereum Blockchain Database vs Traditional MongoDB / SQL
+          Architectural Comparison: Ethereum Sepolia EVM vs Centralized Databases
         </h3>
         <p className="muted small" style={{ textAlign: "center", maxWidth: 600, margin: "0 auto 1.5rem" }}>
-          How CertChain solves the core vulnerabilities of centralized databases in academic credentialing.
+          Why decentralized ledger architecture fundamentally resolves credential fraud and single-point-of-failure vulnerabilities.
         </p>
 
         <div style={{ overflowX: "auto" }}>
@@ -167,8 +173,12 @@ export default function Home() {
             <thead>
               <tr style={{ background: "#e2e8f0", textAlign: "left" }}>
                 <th style={{ padding: "0.6rem 1rem" }}>Feature</th>
-                <th style={{ padding: "0.6rem 1rem", color: "#991b1b" }}>❌ Traditional MongoDB / SQL</th>
-                <th style={{ padding: "0.6rem 1rem", color: "#166534" }}>✅ CertChain (Ethereum Sepolia EVM)</th>
+                <th style={{ padding: "0.6rem 1rem" }}>
+                  <span className="status-pill status-pill-danger">Centralized Database (SQL / MongoDB)</span>
+                </th>
+                <th style={{ padding: "0.6rem 1rem" }}>
+                  <span className="status-pill status-pill-success">CertChain EVM Smart Contracts</span>
+                </th>
               </tr>
             </thead>
             <tbody>

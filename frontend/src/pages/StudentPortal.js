@@ -142,10 +142,10 @@ export default function StudentPortal() {
       {/* Header Banner */}
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem", marginBottom: "1.5rem" }}>
         <div>
-          <span className="eyebrow">🎓 Decentralized Student Credential Vault</span>
-          <h1 style={{ margin: "0.25rem 0" }}>Student Dashboard</h1>
+          <span className="eyebrow">Decentralized Student Credential Vault</span>
+          <h1 style={{ margin: "0.25rem 0" }}>Student Credential Vault</h1>
           <p className="lead" style={{ margin: 0 }}>
-            Inspect, download, and share your tamper-proof academic credentials anchored to <strong>Ethereum Sepolia</strong>.
+            Inspect, export, and cryptographically share your sovereign academic credentials anchored to <strong>Ethereum Sepolia</strong>.
           </p>
         </div>
 
@@ -174,7 +174,7 @@ export default function StudentPortal() {
             </div>
           ) : (
             <Button variant="secondary" onClick={handleConnectMetaMask} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", width: "100%" }}>
-              🦊 Connect Student MetaMask
+              Connect Student Wallet
             </Button>
           )}
         </div>
@@ -199,21 +199,21 @@ export default function StudentPortal() {
               {loading ? "Querying Sepolia..." : "Lookup Credentials"}
             </Button>
             <Button type="button" variant="secondary" onClick={handleConnectMetaMask}>
-              🦊 Sync MetaMask
+              Sync MetaMask
             </Button>
           </div>
           <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Demo Quick-Fill:</span>
             <button
               type="button"
-              style={{ fontSize: "0.75rem", background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1d4ed8", padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
+              className="quick-test-tag"
               onClick={() => {
                 const demoAddr = "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3";
                 setQuery(demoAddr);
                 loadCertificates(demoAddr);
               }}
             >
-              ✨ Primary Deployer / Student Wallet
+              Primary Student Wallet (Demo)
             </button>
           </div>
         </form>
@@ -232,28 +232,28 @@ export default function StudentPortal() {
           className={`dashboard-nav-tab ${activeTab === "credentials" ? "active" : ""}`}
           onClick={() => setActiveTab("credentials")}
         >
-          📜 My Credentials ({certificates.length})
+          My Credentials ({certificates.length})
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "overview" ? "active" : ""}`}
           onClick={() => setActiveTab("overview")}
         >
-          📊 Overview
+          Overview
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "details" ? "active" : ""}`}
           onClick={() => setActiveTab("details")}
         >
-          🔍 Cryptographic Details
+          Cryptographic Details
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "wallet" ? "active" : ""}`}
           onClick={() => setActiveTab("wallet")}
         >
-          🦊 Web3 Identity & Key Info
+          Identity & Keys
         </button>
       </nav>
 
@@ -262,13 +262,15 @@ export default function StudentPortal() {
         <div>
           {searched && certificates.length === 0 && !loading && !error && (
             <div className="card card-pad" style={{ textAlign: "center", padding: "3rem 1rem" }}>
-              <span style={{ fontSize: "2.5rem" }}>📜</span>
-              <h3 style={{ marginTop: "1rem" }}>No Credentials Found</h3>
+              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "#f1f5f9", color: "#64748b", marginBottom: "0.75rem" }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <h3 style={{ marginTop: "0.5rem" }}>No Credentials Found</h3>
               <p className="muted small" style={{ maxWidth: 480, margin: "0.5rem auto 1.5rem" }}>
-                No blockchain credentials were found for <code>{query}</code>. Ensure your institution has registered and issued your certificate to your wallet address.
+                No blockchain credentials were found for <code>{query}</code>. Ensure your institution has issued your certificate to your wallet address or roll number.
               </p>
               <Button variant="secondary" onClick={handleConnectMetaMask}>
-                Connect With Another MetaMask Account
+                Connect With Another Wallet
               </Button>
             </div>
           )}
@@ -294,12 +296,15 @@ export default function StudentPortal() {
                       Candidate: <strong>{cert.candidateName}</strong> · Roll No: <code>{cert.rollNumber}</code>
                     </p>
                   </div>
-                  <span
-                    className={`badge ${cert.revoked ? "badge-revoked" : "badge-success"}`}
-                    style={{ fontWeight: 700, fontSize: "0.8rem", padding: "4px 10px" }}
-                  >
-                    {cert.revoked ? "🔴 REVOKED ON SEPOLIA" : "🟢 ACTIVE & ON-CHAIN VERIFIED"}
-                  </span>
+                  {cert.revoked ? (
+                    <span className="status-pill status-pill-danger">
+                      <span className="status-dot danger" /> Revoked on Ledger
+                    </span>
+                  ) : (
+                    <span className="status-pill status-pill-success">
+                      <span className="status-dot success" /> Validated Authentic
+                    </span>
+                  )}
                 </div>
 
                 {/* Shareable Certificate ID Box */}
@@ -330,7 +335,7 @@ export default function StudentPortal() {
                     onClick={() => copyToClipboard(cert.certId)}
                     style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem" }}
                   >
-                    {copiedId === cert.certId ? "✓ Copied to Clipboard!" : "📋 Copy ID for Employer"}
+                    {copiedId === cert.certId ? "✓ Copied to Clipboard!" : "Copy ID for Employer"}
                   </Button>
                 </div>
 
@@ -345,7 +350,7 @@ export default function StudentPortal() {
                     <strong>{new Date(cert.issueDate || cert.createdAt).toLocaleDateString()}</strong>
                   </div>
                   <div>
-                    <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Issuing Institute Authority</span>
+                    <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Issuing Authority</span>
                     <span style={{ fontFamily: "monospace", color: "#2563eb" }}>
                       {cert.issuerWallet ? cert.issuerWallet.slice(0, 10) + "..." : cert.institutionId}
                     </span>
@@ -376,7 +381,7 @@ export default function StudentPortal() {
                     className="button button-primary"
                     style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem" }}
                   >
-                    📥 Download Original PDF Certificate
+                    Download Official PDF
                   </a>
                   <button
                     type="button"
@@ -387,7 +392,7 @@ export default function StudentPortal() {
                       setActiveTab("details");
                     }}
                   >
-                    🔍 Inspect Cryptographic Fingerprint
+                    Inspect Fingerprint
                   </button>
                   <a
                     href={`/verify/${cert.certId}`}
@@ -396,7 +401,7 @@ export default function StudentPortal() {
                     className="button button-secondary"
                     style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem" }}
                   >
-                    🛡️ Employer Verification View ↗
+                    Verification View ↗
                   </a>
                   <button
                     type="button"
@@ -405,7 +410,7 @@ export default function StudentPortal() {
                     onClick={() => downloadW3cVerifiableCredential(cert)}
                     title="Export machine-readable W3C Verifiable Credential standard format"
                   >
-                    🌐 Download W3C Credential (JSON-LD)
+                    Export W3C JSON-LD
                   </button>
                   {cert.ipfsCid && (
                     <a
@@ -416,7 +421,7 @@ export default function StudentPortal() {
                       style={{ fontSize: "0.85rem", padding: "0.4rem 0.9rem", color: "#7c3aed", fontWeight: 600 }}
                       title="Inspect immutable raw file on decentralized IPFS network"
                     >
-                      📦 View on IPFS Gateway ↗
+                      IPFS Gateway ↗
                     </a>
                   )}
                   <button
@@ -430,7 +435,7 @@ export default function StudentPortal() {
                       setTimeout(() => setCopiedId(""), 2500);
                     }}
                   >
-                    {copiedId === `URL-${cert.certId}` ? "✓ Verification Link Copied!" : "🔗 Copy Verification Link"}
+                    {copiedId === `URL-${cert.certId}` ? "✓ Verification Link Copied!" : "Copy Verification Link"}
                   </button>
                   <button
                     type="button"
@@ -439,7 +444,7 @@ export default function StudentPortal() {
                     onClick={() => setSbtModalCert(cert)}
                     title="View ERC-5192 Non-Transferable Soulbound Token representation"
                   >
-                    🎖️ View Soulbound Token (SBT)
+                    Soulbound Token (ERC-5192)
                   </button>
                 </div>
               </div>
@@ -459,7 +464,7 @@ export default function StudentPortal() {
 
           <div style={{ marginTop: "1.5rem" }}>
             <article className="card card-pad">
-              <h3 style={{ margin: "0 0 0.5rem" }}>💡 How to Verify Your Degree with Employers</h3>
+              <h3 style={{ margin: "0 0 0.5rem" }}>How to Verify Your Degree with Employers</h3>
               <ol style={{ paddingLeft: "1.25rem", lineHeight: "1.7", fontSize: "0.9rem", color: "#334155" }}>
                 <li>Copy your <strong>Unique Certificate ID</strong> from the Credentials tab.</li>
                 <li>Share this Certificate ID on your CV, LinkedIn, or directly with your prospective employer.</li>
@@ -576,7 +581,9 @@ export default function StudentPortal() {
               <span style={{ display: "inline-block", background: "rgba(234, 179, 8, 0.15)", border: "1px solid #ca8a04", color: "#fef08a", padding: "4px 12px", borderRadius: "9999px", fontSize: "0.75rem", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase" }}>
                 ERC-5192 SOULBOUND TOKEN (NON-TRANSFERABLE)
               </span>
-              <div style={{ fontSize: "3rem", margin: "0.75rem 0 0.25rem" }}>🎖️</div>
+              <div style={{ display: "inline-flex", padding: "1rem", borderRadius: "50%", background: "rgba(234, 179, 8, 0.1)", border: "1px solid rgba(234, 179, 8, 0.3)", color: "#facc15", margin: "1rem auto 0.5rem" }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+              </div>
               <h2 style={{ margin: "0.25rem 0", color: "#fef08a", fontSize: "1.4rem", letterSpacing: "0.5px" }}>
                 {sbtModalCert.course}
               </h2>
@@ -611,7 +618,7 @@ export default function StudentPortal() {
             </div>
 
             <p style={{ fontSize: "0.75rem", color: "#94a3b8", textAlign: "center", margin: "0 0 1.25rem", lineHeight: 1.5 }}>
-              🔒 <strong>Non-Transferable Attestation:</strong> This Soulbound Token is mathematically locked to the recipient's private key. Transfer, sale, and tampering are permanently prohibited on Ethereum Sepolia.
+              <strong>Non-Transferable Attestation:</strong> This Soulbound Token is mathematically locked to the recipient's private key. Transfer, sale, and tampering are permanently prohibited on Ethereum Sepolia.
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: "0.75rem" }}>

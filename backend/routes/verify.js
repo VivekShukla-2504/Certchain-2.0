@@ -230,7 +230,25 @@ router.get("/status/:certId", async (req, res) => {
       });
     }
 
-    const { employerWallet } = req.query;
+    const { employerWallet, employerEmail, requestId } = req.query;
+    const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
+      ? employerWallet.trim()
+      : "";
+    const cleanEmail = (typeof employerEmail === "string" && employerEmail.trim().includes("@"))
+      ? employerEmail.trim().toLowerCase()
+      : "";
+    const cleanReqId = (typeof requestId === "string" && requestId.trim().startsWith("REQ-"))
+      ? requestId.trim().toUpperCase()
+      : "";
+
+    // Check direct on-chain approval if caller provided their employer wallet
+    const onChainApproved = cleanWallet ? await isVerificationApprovedOnChain(normalizedId, cleanWallet) : false;
+
+    // Strict Employer Isolation: check if THIS specific employer has an approved, pending, or rejected request
+    let callerRequest = null;
+    const conditions = [];
+    if (cleanWallet) {
+      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\    const { employerWallet } = req.query;
     const onChainApproved = await isVerificationApprovedOnChain(normalizedId, employerWallet);
     const approvedRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
 
@@ -289,6 +307,151 @@ router.get("/status/:certId", async (req, res) => {
       message: pendingRequest
         ? "Verification request is currently pending review by the issuing institution."
         : "Verification request has not yet been submitted for this certificate."
+    });");
+      conditions.push({ employerWallet: { $regex: new RegExp("^" + safeWallet + "$", "i") } });
+    }
+    if (cleanEmail) {
+      const safeEmail = cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\    const { employerWallet } = req.query;
+    const onChainApproved = await isVerificationApprovedOnChain(normalizedId, employerWallet);
+    const approvedRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
+
+    if (onChainApproved || approvedRequest) {
+      return res.json({
+        approved: true,
+        status: "approved",
+        verified: true,
+        revoked: false,
+        certId: stored?.certId || normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        issuerWallet: onChainRecord.issuer || stored?.issuerWallet || stored?.institutionId,
+        studentWallet: onChainRecord.recipient || stored?.studentWallet,
+        ipfsCid: onChainRecord.ipfsCid || stored?.ipfsCid,
+        issuedAt: onChainRecord.issuedAt ? new Date(onChainRecord.issuedAt * 1000).toISOString() : stored?.createdAt,
+        approvedAt: approvedRequest?.approvedAt || new Date().toISOString(),
+        approvedBy: approvedRequest?.approvedBy || stored?.institutionId,
+        txHash: approvedRequest?.txHash || stored?.txHash || "",
+        tamperStatus: approvedRequest?.tamperStatus || "NOT_TAMPERED",
+        blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",
+        certificate: {
+          candidateName: stored?.candidateName,
+          rollNumber: stored?.rollNumber,
+          documentType: stored?.documentType || "Degree",
+          course: stored?.course,
+          grade: stored?.grade,
+          issueDate: stored?.issueDate
+        },
+        message: "Certificate verified and authorized by issuing institution on-chain."
+      });
+    }
+
+    const rejectedRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "rejected" });
+    if (rejectedRequest) {
+      return res.json({
+        approved: false,
+        status: "rejected",
+        certId: normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        candidateName: stored?.candidateName || "Student",
+        rejectionReason: rejectedRequest.rejectionReason,
+        message: "Verification request was reviewed and rejected by the issuing institution: " + (rejectedRequest.rejectionReason || "Reason unspecified.")
+      });
+    }
+
+    const pendingRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "pending" });
+
+    res.json({
+      approved: false,
+      status: pendingRequest ? "pending" : "unrequested",
+      certId: stored?.certId || normalizedId,
+      institutionId: stored?.institutionId || onChainRecord?.institutionId,
+      candidateName: stored?.candidateName || "Student",
+      requestId: pendingRequest?.requestId || null,
+      tamperStatus: pendingRequest?.tamperStatus || "NOT_CHECKED",
+      message: pendingRequest
+        ? "Verification request is currently pending review by the issuing institution."
+        : "Verification request has not yet been submitted for this certificate."
+    });");
+      conditions.push({ employerEmail: { $regex: new RegExp("^" + safeEmail + "$", "i") } });
+    }
+    if (cleanReqId) {
+      conditions.push({ requestId: cleanReqId });
+    }
+
+    if (conditions.length > 0) {
+      const query = { certId: normalizedId, ...(conditions.length > 1 ? { $or: conditions } : conditions[0]) };
+      callerRequest = await VerificationRequest.findOne(query).sort({ requestedAt: -1 }).lean();
+    }
+
+    // If caller's specific request was approved OR their wallet was authorized directly on-chain
+    if (onChainApproved || (callerRequest && callerRequest.status === "approved")) {
+      return res.json({
+        approved: true,
+        status: "approved",
+        verified: true,
+        revoked: false,
+        certId: stored?.certId || normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        issuerWallet: onChainRecord.issuer || stored?.issuerWallet || stored?.institutionId,
+        studentWallet: onChainRecord.recipient || stored?.studentWallet,
+        ipfsCid: onChainRecord.ipfsCid || stored?.ipfsCid,
+        issuedAt: onChainRecord.issuedAt ? new Date(onChainRecord.issuedAt * 1000).toISOString() : stored?.createdAt,
+        approvedAt: callerRequest?.approvedAt || new Date().toISOString(),
+        approvedBy: callerRequest?.approvedBy || stored?.institutionId,
+        txHash: callerRequest?.txHash || stored?.txHash || "",
+        tamperStatus: callerRequest?.tamperStatus || "NOT_TAMPERED",
+        blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",
+        certificate: {
+          candidateName: stored?.candidateName,
+          rollNumber: stored?.rollNumber,
+          documentType: stored?.documentType || "Degree",
+          course: stored?.course,
+          grade: stored?.grade,
+          issueDate: stored?.issueDate
+        },
+        message: "Certificate verified and authorized by issuing institution on-chain."
+      });
+    }
+
+    // If caller's specific request was rejected
+    if (callerRequest && callerRequest.status === "rejected") {
+      return res.json({
+        approved: false,
+        status: "rejected",
+        certId: normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        candidateName: stored?.candidateName || "Student",
+        rejectionReason: callerRequest.rejectionReason,
+        message: "Your organization's verification request was reviewed and rejected by the issuing institution: " + (callerRequest.rejectionReason || "Reason unspecified.")
+      });
+    }
+
+    // If caller's specific request is pending
+    if (callerRequest && callerRequest.status === "pending") {
+      return res.json({
+        approved: false,
+        status: "pending",
+        certId: stored?.certId || normalizedId,
+        institutionId: stored?.institutionId || onChainRecord?.institutionId,
+        candidateName: stored?.candidateName || "Student",
+        requestId: callerRequest.requestId,
+        tamperStatus: callerRequest.tamperStatus || "NOT_CHECKED",
+        message: "Your verification request is currently pending review by the issuing institution."
+      });
+    }
+
+    // If no request exists for this caller: return unrequested state without leaking other employers' requests
+    res.json({
+      approved: false,
+      status: "unrequested",
+      certId: stored?.certId || normalizedId,
+      institutionId: stored?.institutionId || onChainRecord?.institutionId,
+      candidateName: stored?.candidateName || "Student",
+      course: stored?.course || "Academic Credential",
+      blockchainHash: stored?.documentHash || stored?.certHash || onChainRecord?.certHash || "",
+      issuedAt: onChainRecord.issuedAt ? new Date(onChainRecord.issuedAt * 1000).toISOString() : stored?.createdAt,
+      requestId: null,
+      tamperStatus: "NOT_CHECKED",
+      message: "Credential exists on Ethereum Sepolia. Submit a background verification request to obtain institutional authorization."
     });
   } catch (err) {
     res.status(500).json({ message: "Failed to query verification status: " + err.message });
@@ -486,16 +649,42 @@ router.post("/reject/:requestId", requireAuth, requireRole("admin", "issuer"), a
 // GET /api/verify/employer/requests - Employer retrieves their history of verification requests
 router.get("/employer/requests", async (req, res) => {
   try {
-    const { employerWallet, employerEmail } = req.query;
-    let filter = {};
-    if (employerWallet) {
-      filter.$or = [
-        { employerWallet: { $regex: new RegExp(`^${employerWallet.trim()}$`, "i") } }
-      ];
-    } else if (employerEmail) {
-      filter.employerEmail = { $regex: new RegExp(`^${employerEmail.trim()}$`, "i") };
+    const { employerWallet, employerEmail, requestIds } = req.query;
+
+    // STRICT PRIVACY GATE: Prevent cross-employer data exposure
+    const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
+      ? employerWallet.trim()
+      : "";
+    const cleanEmail = (typeof employerEmail === "string" && employerEmail.trim().includes("@"))
+      ? employerEmail.trim().toLowerCase()
+      : "";
+
+    let trackedIds = [];
+    if (typeof requestIds === "string" && requestIds.trim()) {
+      trackedIds = requestIds.split(",")
+        .map((id) => id.trim().toUpperCase())
+        .filter((id) => id.startsWith("REQ-"));
     }
 
+    // If caller has provided zero identifier, deny access by returning empty array
+    if (!cleanWallet && !cleanEmail && trackedIds.length === 0) {
+      return res.json({ requests: [] });
+    }
+
+    const conditions = [];
+    if (cleanWallet) {
+      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      conditions.push({ employerWallet: { $regex: new RegExp(`^${safeWallet}$`, "i") } });
+    }
+    if (cleanEmail) {
+      const safeEmail = cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      conditions.push({ employerEmail: { $regex: new RegExp(`^${safeEmail}$`, "i") } });
+    }
+    if (trackedIds.length > 0) {
+      conditions.push({ requestId: { $in: trackedIds } });
+    }
+
+    const filter = conditions.length > 1 ? { $or: conditions } : conditions[0];
     const requests = await VerificationRequest.find(filter).sort({ requestedAt: -1 }).lean();
     res.json({ requests });
   } catch (err) {
@@ -503,7 +692,9 @@ router.get("/employer/requests", async (req, res) => {
   }
 });
 
-// GET /api/verify/requests/:requestId/submitted-doc - Institute views submitted PDF for side-by-side comparison
+
+
+  // GET /api/verify/requests/:requestId/submitted-doc - Institute views submitted PDF for side-by-side comparison
 router.get("/requests/:requestId/submitted-doc", requireAuth, async (req, res) => {
   try {
     const request = await VerificationRequest.findOne({
@@ -531,7 +722,20 @@ router.get("/:certId/document", async (req, res) => {
       return res.status(404).json({ message: "Certificate PDF not found" });
     }
 
-    // Check if verification has been approved OR if request is from the student recipient
+    // Check if verification has been approved for THIS employer OR if request is from the student recipient
+    const { wallet, employerWallet, employerEmail, requestId } = req.query;
+    const isStudentOwner = wallet && stored.studentWallet && wallet.toLowerCase() === stored.studentWallet.toLowerCase();
+
+    const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
+      ? employerWallet.trim()
+      : (typeof wallet === "string" && wallet.trim().startsWith("0x")) ? wallet.trim() : "";
+
+    const onChainApproved = cleanWallet ? await isVerificationApprovedOnChain(normalizedId, cleanWallet) : false;
+
+    let authorizedForCaller = false;
+    const conditions = [];
+    if (cleanWallet) {
+      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\    // Check if verification has been approved OR if request is from the student recipient
     const { wallet } = req.query;
     const isStudentOwner = wallet && stored.studentWallet && wallet.toLowerCase() === stored.studentWallet.toLowerCase();
     const isApproved = await isVerificationApprovedOnChain(normalizedId) ||
@@ -540,6 +744,40 @@ router.get("/:certId/document", async (req, res) => {
     if (!isApproved && !isStudentOwner) {
       return res.status(403).json({
         message: "Access locked. This certificate requires verification approval from the issuing institute before the document can be viewed."
+      });
+    }");
+      conditions.push({ employerWallet: { $regex: new RegExp("^" + safeWallet + "$", "i") } });
+    }
+    if (employerEmail && typeof employerEmail === "string" && employerEmail.trim().includes("@")) {
+      const safeEmail = employerEmail.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\    // Check if verification has been approved OR if request is from the student recipient
+    const { wallet } = req.query;
+    const isStudentOwner = wallet && stored.studentWallet && wallet.toLowerCase() === stored.studentWallet.toLowerCase();
+    const isApproved = await isVerificationApprovedOnChain(normalizedId) ||
+      await VerificationRequest.exists({ certId: normalizedId, status: "approved" });
+
+    if (!isApproved && !isStudentOwner) {
+      return res.status(403).json({
+        message: "Access locked. This certificate requires verification approval from the issuing institute before the document can be viewed."
+      });
+    }");
+      conditions.push({ employerEmail: { $regex: new RegExp("^" + safeEmail + "$", "i") } });
+    }
+    if (requestId && typeof requestId === "string" && requestId.trim().startsWith("REQ-")) {
+      conditions.push({ requestId: requestId.trim().toUpperCase() });
+    }
+
+    if (conditions.length > 0) {
+      const query = {
+        certId: normalizedId,
+        status: "approved",
+        ...(conditions.length > 1 ? { $or: conditions } : conditions[0])
+      };
+      authorizedForCaller = await VerificationRequest.exists(query);
+    }
+
+    if (!isStudentOwner && !onChainApproved && !authorizedForCaller) {
+      return res.status(403).json({
+        message: "Access locked. Only authorized employers approved by the issuing institution or the student recipient can view this document."
       });
     }
 

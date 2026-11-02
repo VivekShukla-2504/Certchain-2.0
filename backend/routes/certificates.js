@@ -579,16 +579,22 @@ router.get("/:certId/download-student", async (req, res) => {
 router.get("/student/:identifier", async (req, res) => {
   try {
     const { identifier } = req.params;
-    const cleanId = identifier.trim();
+    const cleanId = (identifier || "").trim();
+
+    if (!cleanId || cleanId.length < 2) {
+      return res.status(400).json({ message: "Invalid student identifier provided." });
+    }
+
+    const safeId = cleanId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     let filter = { status: { $ne: "failed" } };
     if (cleanId.startsWith("0x")) {
-      filter.studentWallet = { $regex: new RegExp(`^${cleanId}$`, "i") };
+      filter.studentWallet = { $regex: new RegExp(`^${safeId}$`, "i") };
     } else {
       filter.$or = [
-        { rollNumber: { $regex: new RegExp(`^${cleanId}$`, "i") } },
-        { studentEmail: { $regex: new RegExp(`^${cleanId}$`, "i") } },
-        { studentWallet: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+        { rollNumber: { $regex: new RegExp(`^${safeId}$`, "i") } },
+        { studentEmail: { $regex: new RegExp(`^${safeId}$`, "i") } },
+        { studentWallet: { $regex: new RegExp(`^${safeId}$`, "i") } }
       ];
     }
 

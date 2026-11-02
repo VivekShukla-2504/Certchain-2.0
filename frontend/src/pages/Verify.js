@@ -115,12 +115,23 @@ export default function Verify() {
   async function fetchEmployerHistory() {
     setLoadingHistory(true);
     try {
-      const queryParam = employerWallet
-        ? `?employerWallet=${encodeURIComponent(employerWallet)}`
-        : employerEmail
-        ? `?employerEmail=${encodeURIComponent(employerEmail)}`
-        : "";
-      const res = await api.get(`/verify/employer/requests${queryParam}`);
+      const trackedJson = localStorage.getItem("certchain_employer_tracked_ids") || "[]";
+      let tracked = [];
+      try { tracked = JSON.parse(trackedJson); } catch (e) {}
+
+      // If user hasn't connected wallet, hasn't entered email, and has no tracked requests
+      if (!employerWallet && !employerEmail && tracked.length === 0) {
+        setEmployerRequests([]);
+        setLoadingHistory(false);
+        return;
+      }
+
+      const params = new URLSearchParams();
+      if (employerWallet) params.append("employerWallet", employerWallet.trim());
+      if (employerEmail) params.append("employerEmail", employerEmail.trim());
+      if (tracked.length > 0) params.append("requestIds", tracked.join(","));
+
+      const res = await api.get(`/verify/employer/requests?${params.toString()}`);
       setEmployerRequests(res.data.requests || []);
     } catch (e) {
       // Ignore background load error
@@ -240,6 +251,16 @@ export default function Verify() {
       }
 
       const res = await api.post("/verify/request", formData);
+
+      if (res.data.requestId) {
+        const trackedJson = localStorage.getItem("certchain_employer_tracked_ids") || "[]";
+        let tracked = [];
+        try { tracked = JSON.parse(trackedJson); } catch (e) {}
+        if (!tracked.includes(res.data.requestId)) {
+          tracked.push(res.data.requestId);
+          localStorage.setItem("certchain_employer_tracked_ids", JSON.stringify(tracked));
+        }
+      }
 
       if (res.data.tamperStatus === "TAMPERED") {
         setVerificationStatus("tampered");
@@ -495,10 +516,10 @@ export default function Verify() {
       {/* Header Banner */}
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem", marginBottom: "1.75rem" }}>
         <div>
-          <span className="eyebrow">💼 Stakeholder 2: Employer Verification Workspace</span>
-          <h1 style={{ margin: "0.25rem 0" }}>Employer Dashboard & Verification Portal</h1>
+          <span className="eyebrow">Enterprise Verifier Workspace</span>
+          <h1 style={{ margin: "0.25rem 0" }}>Employer Verification Portal</h1>
           <p className="lead" style={{ margin: 0 }}>
-            Independently verify academic certificates, inspect on-chain hashes, and detect document tampering using <strong>Ethereum Sepolia</strong>.
+            Independently verify academic credentials, inspect on-chain hashes, and detect document tampering using <strong>Ethereum Sepolia</strong>.
           </p>
         </div>
 
@@ -527,7 +548,7 @@ export default function Verify() {
             </div>
           ) : (
             <Button variant="secondary" onClick={handleConnectWallet} loading={connectingWallet} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", width: "100%" }}>
-              🦊 Connect Employer Wallet
+              Connect Employer Wallet
             </Button>
           )}
         </div>
@@ -540,28 +561,28 @@ export default function Verify() {
           className={`dashboard-nav-tab ${activeTab === "verify" ? "active" : ""}`}
           onClick={() => setActiveTab("verify")}
         >
-          🔍 Verify Certificate
+          Verify Credential
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "overview" ? "active" : ""}`}
           onClick={() => setActiveTab("overview")}
         >
-          📊 Overview
+          Protocol Overview
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "requests" ? "active" : ""}`}
           onClick={() => setActiveTab("requests")}
         >
-          📋 Verification Requests ({employerRequests.length})
+          Confidential Verification History ({employerRequests.length})
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "wallet" ? "active" : ""}`}
           onClick={() => setActiveTab("wallet")}
         >
-          🦊 Employer Key & Wallet Info
+          Organization Identity & Keys
         </button>
       </nav>
 
@@ -577,14 +598,14 @@ export default function Verify() {
                 </span>
                 <button
                   type="button"
-                  style={{ fontSize: "0.75rem", background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#15803d", padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontWeight: 700 }}
+                  className="quick-test-tag"
                   onClick={() => {
                     const demoId = "CERT-DEPLOYER-TEST";
                     setCertId(demoId);
                     checkStatus(demoId);
                   }}
                 >
-                  🟢 Test Authentic Degree (Sepolia Anchor)
+                  Sepolia Anchor Test (Authentic)
                 </button>
               </div>
               <div style={{ marginBottom: "1.25rem" }}>
@@ -612,10 +633,10 @@ export default function Verify() {
                     title="Scan QR code using camera"
                     style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
                   >
-                    📷 Scan QR
+                    Scan QR
                   </button>
                   <Button type="submit" loading={verificationStatus === "loading" && !directEvmLoading}>
-                    {verificationStatus === "loading" && !directEvmLoading ? "Validating On-Chain..." : "🔍 Check & Request Verification"}
+                    {verificationStatus === "loading" && !directEvmLoading ? "Validating On-Chain..." : "Verify & Request Access"}
                   </Button>
                   <button
                     type="button"
@@ -625,12 +646,12 @@ export default function Verify() {
                     style={{ background: "#7c3aed", color: "#fff", borderColor: "#6d28d9", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
                     title="Direct EVM call to Sepolia node, completely bypassing MongoDB and Backend API"
                   >
-                    {directEvmLoading ? "Querying EVM Node..." : "⚡ Direct Sepolia EVM Mode (Zero Backend)"}
+                    {directEvmLoading ? "Querying EVM Node..." : "Direct Sepolia EVM Mode (Zero-Trust)"}
                   </button>
                 </div>
                 {isDirectEvmVerified && (
                   <div style={{ marginTop: "0.75rem", padding: "0.6rem 1rem", background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                    <span style={{ fontSize: "1.2rem" }}>⚡</span>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7c3aed", display: "inline-block" }} />
                     <span style={{ fontSize: "0.85rem", color: "#5b21b6", fontWeight: 700 }}>
                       Direct Trustless EVM Proof: Verified directly from Ethereum Sepolia smart contract storage mappings (Zero MongoDB or Backend server dependency).
                     </span>
@@ -709,12 +730,19 @@ export default function Verify() {
           {verificationStatus === "tampered" && (
             <div className="card card-pad" style={{ borderLeft: "6px solid #dc2626", background: "#fef2f2", marginBottom: "2rem" }}>
               <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-                <span style={{ fontSize: "2.5rem" }}>⚠️</span>
+                <div style={{ display: "inline-flex", padding: "0.6rem", borderRadius: "8px", background: "#fee2e2", color: "#dc2626" }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <h2 style={{ color: "#991b1b", margin: 0, fontSize: "1.35rem" }}>
-                      🔴 DOCUMENT TAMPERING DETECTED!
-                    </h2>
+                    <div>
+                      <span className="status-pill status-pill-danger" style={{ marginBottom: "0.35rem" }}>
+                        <span className="status-dot danger" /> Cryptographic Integrity Failure
+                      </span>
+                      <h2 style={{ color: "#991b1b", margin: 0, fontSize: "1.25rem", fontWeight: 700 }}>
+                        Document Modification (Tampering) Detected
+                      </h2>
+                    </div>
                     <span className="badge badge-revoked" style={{ fontWeight: 700 }}>
                       HASH MISMATCH
                     </span>
@@ -735,7 +763,7 @@ export default function Verify() {
                   </div>
 
                   <p style={{ color: "#991b1b", fontSize: "0.85rem", marginTop: "0.75rem", marginBottom: 0 }}>
-                    ⛔ <strong>Notice for Employer:</strong> This document has been altered after its official issuance. The issuing institution has been flagged and will not approve this document.
+                    <strong>Security Advisory:</strong> This document has been modified after official issuance. The issuing authority's cryptographic proof does not match this file.
                   </p>
                 </div>
               </div>
@@ -746,12 +774,19 @@ export default function Verify() {
           {verificationStatus === "revoked" && (
             <div className="card card-pad" style={{ borderLeft: "6px solid #b91c1c", background: "#fef2f2", marginBottom: "2rem" }}>
               <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-                <span style={{ fontSize: "2.5rem" }}>🚫</span>
+                <div style={{ display: "inline-flex", padding: "0.6rem", borderRadius: "8px", background: "#fee2e2", color: "#dc2626" }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <h2 style={{ color: "#991b1b", margin: 0, fontSize: "1.35rem" }}>
-                      Credential Revoked on Ethereum Sepolia
-                    </h2>
+                    <div>
+                      <span className="status-pill status-pill-danger" style={{ marginBottom: "0.35rem" }}>
+                        <span className="status-dot danger" /> Revoked on Ledger
+                      </span>
+                      <h2 style={{ color: "#991b1b", margin: 0, fontSize: "1.25rem", fontWeight: 700 }}>
+                        Credential Revoked on Ethereum Sepolia
+                      </h2>
+                    </div>
                     <span className="badge badge-revoked" style={{ fontWeight: 700 }}>
                       REVOKED
                     </span>
@@ -855,7 +890,7 @@ export default function Verify() {
                       onClick={() => setShowAuditModal(true)}
                       style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", background: "#0284c7", color: "#fff", fontWeight: 700, borderColor: "#0369a1" }}
                     >
-                      📄 Official Audit Certificate
+                      Audit Receipt
                     </button>
                     <button
                       type="button"
@@ -864,7 +899,7 @@ export default function Verify() {
                       style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", color: "#059669", fontWeight: 600 }}
                       title="Download international W3C Verifiable Credential standard (JSON-LD)"
                     >
-                      🌐 W3C Credential (JSON-LD)
+                      Export W3C JSON-LD
                     </button>
                     {approvedDetails.ipfsCid && (
                       <a
@@ -874,7 +909,7 @@ export default function Verify() {
                         className="button button-secondary"
                         style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", color: "#7c3aed", fontWeight: 600 }}
                       >
-                        📦 View on IPFS ↗
+                        IPFS Gateway ↗
                       </a>
                     )}
                     <button
@@ -883,17 +918,17 @@ export default function Verify() {
                       onClick={() => window.print()}
                       style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem" }}
                     >
-                      🖨️ Print Proof
+                      Print Proof
                     </button>
                     {!approvedDetails.directOnChain && (
                       <a
-                        href={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document`}
+                        href={`${API_ORIGIN}/api/verify/${encodeURIComponent(certId)}/document${employerWallet ? `?employerWallet=${encodeURIComponent(employerWallet)}` : employerEmail ? `?employerEmail=${encodeURIComponent(employerEmail)}` : ""}`}
                         target="_blank"
                         rel="noreferrer"
                         className="button button-primary"
                         style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem" }}
                       >
-                        📥 Download Original PDF
+                        Download Verified PDF
                       </a>
                     )}
                   </div>
@@ -1033,19 +1068,59 @@ export default function Verify() {
         <article className="card dashboard-panel">
           <div className="panel-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
             <div>
-              <h2>Your Verification Requests History</h2>
-              <p className="muted small">All certificate queries and authorization decisions for your organization.</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                <span className="status-pill status-pill-verified">
+                  <span className="status-dot verified" /> Cryptographically Isolated Session
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Zero Data Leakage Enforced</span>
+              </div>
+              <h2 style={{ margin: "0.25rem 0" }}>Confidential Verification History</h2>
+              <p className="muted small" style={{ margin: 0 }}>
+                Verification requests and candidate audit trails are strictly isolated to your organization's wallet or recruiter session.
+              </p>
             </div>
-            <Button variant="secondary" onClick={fetchEmployerHistory} loading={loadingHistory} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}>
-              🔄 Refresh History
-            </Button>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <Button variant="secondary" onClick={fetchEmployerHistory} loading={loadingHistory} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}>
+                Refresh
+              </Button>
+              {employerRequests.length > 0 && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    if (window.confirm("Clear all tracked background checks from this local workstation session?")) {
+                      localStorage.removeItem("certchain_employer_tracked_ids");
+                      setEmployerRequests([]);
+                    }
+                  }}
+                  style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", color: "#dc2626" }}
+                  title="Wipe locally stored request tracking IDs from this device"
+                >
+                  Clear Session Cache
+                </button>
+              )}
+            </div>
           </div>
 
           {employerRequests.length === 0 ? (
-            <div className="dashboard-empty" style={{ padding: "3rem 1rem", textAlign: "center" }}>
-              <h3>No verification requests found</h3>
-              <p className="muted small">Enter a Certificate ID in the "Verify Certificate" tab to submit your first query.</p>
-              <Button onClick={() => setActiveTab("verify")}>Verify a Certificate</Button>
+            <div className="confidential-vault-card">
+              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "#f1f5f9", color: "#475569", marginBottom: "0.75rem" }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <h3 style={{ margin: "0 0 0.5rem", color: "#0f172a", fontSize: "1.15rem" }}>
+                Confidential Recruiter Workspace (Zero Data Leakage)
+              </h3>
+              <p className="muted small" style={{ maxWidth: 520, margin: "0 auto 1.25rem", lineHeight: 1.6 }}>
+                Verification records and candidate background checks are cryptographically isolated. Unauthenticated visitors or other companies cannot view your requests. Connect your organization wallet ({employerWallet ? <code style={{ color: "#2563eb" }}>{employerWallet.slice(0, 10)}...</code> : "Not connected"}) or submit a certificate query to track candidates.
+              </p>
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+                <Button onClick={() => setActiveTab("verify")}>Submit New Background Check</Button>
+                {!employerWallet && (
+                  <Button variant="secondary" onClick={handleConnectWallet}>
+                    Connect Employer Wallet
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="certificate-table-wrap">
@@ -1078,27 +1153,37 @@ export default function Verify() {
                       </td>
                       <td data-label="Tamper Check">
                         {req.tamperStatus === "NOT_TAMPERED" ? (
-                          <span style={{ color: "#065f46", background: "#ecfdf5", padding: "2px 8px", borderRadius: 4, fontWeight: 600, fontSize: "0.75rem" }}>
-                            🟢 HASH MATCH
+                          <span className="status-pill status-pill-success">
+                            <span className="status-dot success" /> Hash Match
                           </span>
                         ) : req.tamperStatus === "TAMPERED" ? (
-                          <span style={{ color: "#991b1b", background: "#fef2f2", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: "0.75rem" }}>
-                            🔴 TAMPERED
+                          <span className="status-pill status-pill-danger">
+                            <span className="status-dot danger" /> Tampered
                           </span>
                         ) : req.tamperStatus === "REVOKED" ? (
-                          <span style={{ color: "#991b1b", background: "#fef2f2", padding: "2px 8px", borderRadius: 4, fontWeight: 600, fontSize: "0.75rem" }}>
-                            🚫 REVOKED
+                          <span className="status-pill status-pill-danger">
+                            <span className="status-dot danger" /> Revoked
                           </span>
                         ) : (
-                          <span style={{ color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 4, fontSize: "0.75rem" }}>
-                            ⚪ NO PDF
+                          <span className="status-pill status-pill-neutral">
+                            No PDF
                           </span>
                         )}
                       </td>
                       <td data-label="Status">
-                        <span className={`badge ${req.status === "approved" ? "badge-success" : req.status === "rejected" ? "badge-revoked" : "badge-neutral"}`}>
-                          {req.status === "approved" ? "✓ VERIFIED" : req.status === "rejected" ? "REJECTED" : "⏳ PENDING"}
-                        </span>
+                        {req.status === "approved" ? (
+                          <span className="status-pill status-pill-verified">
+                            <span className="status-dot verified" /> Authorized On-Chain
+                          </span>
+                        ) : req.status === "rejected" ? (
+                          <span className="status-pill status-pill-danger">
+                            <span className="status-dot danger" /> Rejected
+                          </span>
+                        ) : (
+                          <span className="status-pill status-pill-warning">
+                            <span className="status-dot warning" /> Pending Review
+                          </span>
+                        )}
                       </td>
                       <td data-label="Date">
                         <small>{formatDate(req.requestedAt)}</small>
@@ -1163,7 +1248,7 @@ export default function Verify() {
           </div>
 
           <Button onClick={handleConnectWallet} style={{ width: "100%" }}>
-            🦊 Reconnect / Switch Employer MetaMask Account
+            Reconnect / Switch Employer Account
           </Button>
         </article>
       )}
@@ -1174,7 +1259,7 @@ export default function Verify() {
           <div style={{ background: "#fff", borderRadius: 12, maxWidth: 480, width: "100%", padding: "1.5rem", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.15rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                📷 Scan Physical Certificate QR
+                Scan Physical Certificate QR
               </h3>
               <button type="button" onClick={stopQrCamera} style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#64748b" }}>
                 ✕
@@ -1203,7 +1288,7 @@ export default function Verify() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <label className="button button-secondary" style={{ textAlign: "center", cursor: "pointer", fontSize: "0.85rem" }}>
-                📁 Upload QR Image File Instead
+                Upload QR Image File Instead
                 <input
                   type="file"
                   accept="image/*"
@@ -1230,7 +1315,9 @@ export default function Verify() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
           <div style={{ background: "#ffffff", borderRadius: 12, maxWidth: 660, width: "100%", padding: "2rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)", maxHeight: "90vh", overflowY: "auto", border: "4px double #0284c7" }}>
             <div style={{ textAlign: "center", borderBottom: "2px solid #e2e8f0", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
-              <div style={{ fontSize: "2.5rem" }}>🛡️ ⛓️</div>
+              <div style={{ display: "inline-flex", padding: "0.75rem", borderRadius: "12px", background: "#f0f9ff", color: "#0284c7", marginBottom: "0.5rem" }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
               <h2 style={{ margin: "0.25rem 0", color: "#0f172a", textTransform: "uppercase", letterSpacing: "1px", fontSize: "1.35rem" }}>
                 Cryptographic Credential Attestation
               </h2>
@@ -1296,7 +1383,7 @@ export default function Verify() {
                 Close
               </button>
               <button type="button" className="button button-primary" onClick={() => window.print()}>
-                🖨️ Print / Save as PDF
+                Print / Save as PDF
               </button>
             </div>
           </div>

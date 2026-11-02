@@ -87,21 +87,21 @@ export function PublicHeader() {
       {/* Desktop Navigation */}
       <nav className="nav-links desktop-nav-links" aria-label="Primary navigation">
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/student" style={{ fontWeight: 600 }}>
-          🎓 Student Portal
+          Student Portal
         </NavLink>
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify" style={{ fontWeight: 600 }}>
-          💼 Employer Verify
+          Employer Verification
         </NavLink>
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/keys" style={{ fontWeight: 600 }}>
-          ⛓️ Sepolia Keys
+          Architecture & Keys
         </NavLink>
         {institution ? (
           <Link to="/dashboard" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
-            🏛️ Dashboard ({institution.name?.slice(0, 10)}...)
+            Workspace ({institution.name?.slice(0, 10)}...)
           </Link>
         ) : (
           <Link to="/login" className="button button-secondary topbar-signin" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}>
-            🏛️ Institution Portal
+            Institution Portal
           </Link>
         )}
 
@@ -109,8 +109,10 @@ export function PublicHeader() {
           <span
             className="wallet-pill"
             title={`Connected MetaMask Account: ${walletAddress}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
           >
-            🦊 {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
           </span>
         ) : (
           <button
@@ -118,7 +120,7 @@ export function PublicHeader() {
             className="wallet-connect-btn"
             onClick={handleConnect}
           >
-            🦊 Connect Wallet
+            Connect Wallet
           </button>
         )}
 
@@ -158,21 +160,21 @@ export function PublicHeader() {
 
           <div className="mobile-nav-links">
             <NavLink to="/student" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
-              🎓 Student Credential Vault
+              Student Credential Vault
             </NavLink>
             <NavLink to="/verify" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
-              💼 Employer Verification Portal
+              Employer Verification Portal
             </NavLink>
             <NavLink to="/keys" className={({ isActive }) => `mobile-nav-item${isActive ? " active" : ""}`}>
-              ⛓️ Sepolia Keys & Contract Details
+              Sepolia Keys & Architecture
             </NavLink>
             {institution ? (
               <Link to="/dashboard" className="mobile-nav-item">
-                🏛️ Institution Dashboard ({institution.name})
+                Institution Dashboard ({institution.name})
               </Link>
             ) : (
               <Link to="/login" className="mobile-nav-item">
-                🏛️ Institution Portal (Sign In / Register)
+                Institution Portal (Sign In / Register)
               </Link>
             )}
           </div>
@@ -180,7 +182,8 @@ export function PublicHeader() {
           <div className="mobile-nav-footer">
             {walletAddress ? (
               <div className="wallet-pill full-width" style={{ padding: "8px 12px" }}>
-                🦊 {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)} (Connected)
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", marginRight: 6 }} />
+                {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)} (Connected)
               </div>
             ) : (
               <button
@@ -189,7 +192,7 @@ export function PublicHeader() {
                 onClick={handleConnect}
                 style={{ padding: "10px" }}
               >
-                🦊 Connect MetaMask Wallet
+                Connect MetaMask Wallet
               </button>
             )}
           </div>

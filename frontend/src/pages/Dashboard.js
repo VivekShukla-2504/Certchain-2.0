@@ -392,7 +392,7 @@ export default function Dashboard() {
       {/* Header Banner */}
       <div className="page-header dashboard-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <span className="eyebrow">🏛️ Authorized Academic Authority</span>
+          <span className="eyebrow">Authorized Academic Authority</span>
           <h1 style={{ margin: "0.25rem 0" }}>{institution?.name || "Institution Workspace"}</h1>
           <p className="lead" style={{ margin: 0 }}>
             Blockchain-Anchored Credential Registry on <strong>Ethereum Sepolia Testnet</strong>.
@@ -424,7 +424,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <Button variant="secondary" onClick={handleConnectWallet} loading={connectingWallet} style={{ fontSize: "0.8rem", padding: "0.3rem 0.6rem", width: "100%" }}>
-              🦊 Connect Institute Wallet
+              Connect Institution Wallet
             </Button>
           )}
         </div>
@@ -443,49 +443,49 @@ export default function Dashboard() {
           className={`dashboard-nav-tab ${activeTab === "overview" ? "active" : ""}`}
           onClick={() => setActiveTab("overview")}
         >
-          📊 Overview
+          Overview
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "students" ? "active" : ""}`}
           onClick={() => setActiveTab("students")}
         >
-          🎓 Student Management ({students.length})
+          Student Registry ({students.length})
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "issue" ? "active" : ""}`}
           onClick={() => setActiveTab("issue")}
         >
-          ＋ Issue Certificate
+          Issue Credential
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "credentials" ? "active" : ""}`}
           onClick={() => setActiveTab("credentials")}
         >
-          📜 Issued Credentials ({certificates.length})
+          Issued Credentials ({certificates.length})
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "revocation" ? "active" : ""}`}
           onClick={() => setActiveTab("revocation")}
         >
-          ⚠️ Revocation Management
+          Revocation Management
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "transactions" ? "active" : ""}`}
           onClick={() => setActiveTab("transactions")}
         >
-          🔗 Blockchain Ledger
+          Sepolia Ledger
         </button>
         <button
           type="button"
           className={`dashboard-nav-tab ${activeTab === "verifications" ? "active" : ""}`}
           onClick={() => setActiveTab("verifications")}
         >
-          🏢 Employer Requests {pendingRequestsCount > 0 && <span style={{ background: "#dc2626", color: "#fff", padding: "1px 6px", borderRadius: "10px", fontSize: "0.75rem" }}>{pendingRequestsCount}</span>}
+          Employer Requests {pendingRequestsCount > 0 && <span style={{ background: "#dc2626", color: "#fff", padding: "1px 6px", borderRadius: "10px", fontSize: "0.75rem" }}>{pendingRequestsCount}</span>}
         </button>
       </nav>
 
@@ -501,19 +501,19 @@ export default function Dashboard() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem", marginTop: "1.5rem" }}>
             <article className="card card-pad">
-              <h3 style={{ margin: "0 0 0.5rem" }}>🚀 Quick Actions</h3>
+              <h3 style={{ margin: "0 0 0.5rem" }}>Quick Actions</h3>
               <p className="muted small" style={{ margin: "0 0 1rem" }}>
                 Execute verified on-chain administrative tasks.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <Button onClick={() => setActiveTab("issue")}>＋ Issue New Academic Certificate</Button>
-                <Button variant="secondary" onClick={() => setActiveTab("students")}>🎓 Register New Student</Button>
-                <Button variant="secondary" onClick={() => setActiveTab("credentials")}>📜 View Issued Credentials</Button>
+                <Button onClick={() => setActiveTab("issue")}>Issue Academic Credential</Button>
+                <Button variant="secondary" onClick={() => setActiveTab("students")}>Register New Student</Button>
+                <Button variant="secondary" onClick={() => setActiveTab("credentials")}>Inspect Issued Credentials</Button>
               </div>
             </article>
 
             <article className="card card-pad">
-              <h3 style={{ margin: "0 0 0.5rem" }}>🌐 Smart Contract Architecture</h3>
+              <h3 style={{ margin: "0 0 0.5rem" }}>Smart Contract Architecture</h3>
               <p className="muted small" style={{ margin: "0 0 1rem" }}>
                 Direct Sepolia Testnet integration via OpenZeppelin AccessControl.
               </p>
@@ -1075,7 +1075,7 @@ export default function Dashboard() {
                           className={`badge ${cert.revoked ? "badge-revoked" : "badge-success"}`}
                           style={{ fontWeight: 700 }}
                         >
-                          {cert.revoked ? "🔴 REVOKED" : "🟢 ACTIVE"}
+                          {cert.revoked ? <span className="status-pill status-pill-danger"><span className="status-dot danger" /> Revoked</span> : <span className="status-pill status-pill-success"><span className="status-dot success" /> Active On-Chain</span>}
                         </span>
                       </td>
                       <td data-label="Sepolia Tx">
@@ -1324,7 +1324,7 @@ export default function Dashboard() {
                     <th>Candidate</th>
                     <th>Employer / Recruiter</th>
                     <th>Date Requested</th>
-                    <th>🛡️ Tamper Status</th>
+                    <th>Tamper Verification</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>

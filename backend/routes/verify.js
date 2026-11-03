@@ -11,13 +11,12 @@ const { generateCertificatePdf } = require("../utils/certificatePdf");
 const {
   verifyOnChain,
   getRecordOnChain,
-  approveVerificationOnChain,
-  isVerificationApprovedOnChain
+  approveVerificationOnChain
 } = require("../utils/blockchain");
 const { receivePdf, isPdfBuffer } = require("../utils/pdfUpload");
 const { DEFAULT_PUBLIC_CERTIFICATE_FIELDS } = require("../utils/disclosure");
 const { readString, validateCertificateInput } = require("../utils/validation");
-const { requireAuth, requireRole } = require("../middleware/auth");
+const { requireAuth, requireStakeholderAuth, requireRole, isTokenBlacklisted } = require("../middleware/auth");
 const { downloadFromIPFS, decryptFromIPFS } = require("../utils/ipfs");
 const {
   sendEmployerRequestSubmittedEmail,
@@ -48,10 +47,21 @@ function discloseCertificate(fields, publicFields) {
     .map((field) => [field, fields[field]]));
 }
 
+function approvedEmployerRequestQuery(certId, walletAddress) {
+  const escapedWallet = walletAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return {
+    certId,
+    status: "approved",
+    employerWallet: { $regex: new RegExp(`^${escapedWallet}$`, "i") },
+    txHash: { $regex: /^0x[a-fA-F0-9]{64}$/ }
+  };
+}
+
 // POST /api/verify/request - Employer submits certId and optional PDF for Institute verification
-router.post("/request", receivePdf, async (req, res) => {
+router.post("/request", requireStakeholderAuth("employer"), receivePdf, async (req, res) => {
   try {
-    const { certId, employerName, employerWallet, employerEmail } = req.body;
+    const { certId, employerName, employerEmail } = req.body;
+    const employerWallet = req.stakeholder.walletAddress.toLowerCase();
     const certIdError = readString(certId, "Certificate ID or Roll Number", { max: 80, pattern: /^[A-Za-z0-9_.-]+$/ });
     if (certIdError) return res.status(400).json({ message: certIdError });
 
@@ -111,11 +121,11 @@ router.post("/request", receivePdf, async (req, res) => {
       tamperStatus = "REVOKED";
     }
 
-    // Check if already approved on-chain
-    const onChainApproved = await isVerificationApprovedOnChain(normalizedId, employerWallet);
-    const existingApproved = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
+    const existingApproved = await VerificationRequest.findOne(
+      approvedEmployerRequestQuery(normalizedId, employerWallet)
+    ).lean();
 
-    if ((onChainApproved || existingApproved) && !isRevoked && tamperStatus !== "TAMPERED") {
+    if (existingApproved && !isRevoked && tamperStatus !== "TAMPERED") {
       const instRecord = await Institution.findOne({ institutionId: stored?.institutionId || onChainRecord?.institutionId }).select("name").lean();
       return res.json({
         approved: true,
@@ -207,7 +217,7 @@ router.post("/request", receivePdf, async (req, res) => {
 });
 
 // GET /api/verify/status/:certId - Employer checks if Institute has verified/approved
-router.get("/status/:certId", async (req, res) => {
+router.get("/status/:certId", requireStakeholderAuth("employer"), async (req, res) => {
   try {
     const rawInput = req.params.certId.trim();
     const normalizedId = rawInput.toUpperCase();
@@ -254,42 +264,13 @@ router.get("/status/:certId", async (req, res) => {
       });
     }
 
-    const { employerWallet, employerEmail, requestId } = req.query;
-    const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
-      ? employerWallet.trim()
-      : "";
-    const cleanEmail = (typeof employerEmail === "string" && employerEmail.trim().includes("@"))
-      ? employerEmail.trim().toLowerCase()
-      : "";
-    const cleanReqId = (typeof requestId === "string" && requestId.trim().startsWith("REQ-"))
-      ? requestId.trim().toUpperCase()
-      : "";
+    const employerWallet = req.stakeholder.walletAddress.toLowerCase();
+    const callerRequest = await VerificationRequest.findOne({
+      certId: effectiveCertId,
+      employerWallet: { $regex: new RegExp(`^${employerWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+    }).sort({ requestedAt: -1 }).lean();
 
-    // Check direct on-chain approval if caller provided their employer wallet
-    const onChainApproved = cleanWallet ? await isVerificationApprovedOnChain(normalizedId, cleanWallet) : false;
-
-    // Strict Employer Isolation: check if THIS specific employer has an approved, pending, or rejected request
-    let callerRequest = null;
-    const conditions = [];
-    if (cleanWallet) {
-      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({ employerWallet: { $regex: new RegExp("^" + safeWallet + "$", "i") } });
-    }
-    if (cleanEmail) {
-      const safeEmail = cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({ employerEmail: { $regex: new RegExp("^" + safeEmail + "$", "i") } });
-    }
-    if (cleanReqId) {
-      conditions.push({ requestId: cleanReqId });
-    }
-
-    if (conditions.length > 0) {
-      const query = { certId: effectiveCertId, ...(conditions.length > 1 ? { $or: conditions } : conditions[0]) };
-      callerRequest = await VerificationRequest.findOne(query).sort({ requestedAt: -1 }).lean();
-    }
-
-    // If caller's specific request was approved OR their wallet was authorized directly on-chain
-    if (onChainApproved || (callerRequest && callerRequest.status === "approved")) {
+    if (callerRequest && callerRequest.status === "approved" && /^0x[a-fA-F0-9]{64}$/.test(callerRequest.txHash || "")) {
       return res.json({
         approved: true,
         status: "approved",
@@ -461,17 +442,22 @@ router.post("/approve/:requestId", requireAuth, requireRole("admin", "issuer"), 
     }
 
     // Call real smart contract function on Sepolia
-    let txHash = "";
+    if (!/^0x[a-fA-F0-9]{40}$/.test(request.employerWallet || "")) {
+      return res.status(400).json({ message: "Verification request has no valid employer wallet" });
+    }
+
+    let txHash;
     try {
       txHash = await approveVerificationOnChain(request.certId, request.employerWallet);
     } catch (chainErr) {
-      console.warn("On-chain approval transaction logged:", chainErr.message);
+      console.error("[CertChain Verification] On-chain approval failed:", chainErr.message);
+      return res.status(502).json({ message: "On-chain approval failed; the request remains pending" });
     }
 
     request.status = "approved";
     request.approvedAt = new Date();
     request.approvedBy = req.institution.institutionId;
-    request.txHash = txHash || "";
+    request.txHash = txHash;
     await request.save();
 
     // Notify Employer via email
@@ -557,44 +543,12 @@ router.post("/reject/:requestId", requireAuth, requireRole("admin", "issuer"), a
 });
 
 // GET /api/verify/employer/requests - Employer retrieves their history of verification requests
-router.get("/employer/requests", async (req, res) => {
+router.get("/employer/requests", requireStakeholderAuth("employer"), async (req, res) => {
   try {
-    const { employerWallet, employerEmail, requestIds } = req.query;
-
-    // STRICT PRIVACY GATE: Prevent cross-employer data exposure
-    const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
-      ? employerWallet.trim()
-      : "";
-    const cleanEmail = (typeof employerEmail === "string" && employerEmail.trim().includes("@"))
-      ? employerEmail.trim().toLowerCase()
-      : "";
-
-    let trackedIds = [];
-    if (typeof requestIds === "string" && requestIds.trim()) {
-      trackedIds = requestIds.split(",")
-        .map((id) => id.trim().toUpperCase())
-        .filter((id) => id.startsWith("REQ-"));
-    }
-
-    // If caller has provided zero identifier, deny access by returning empty array
-    if (!cleanWallet && !cleanEmail && trackedIds.length === 0) {
-      return res.json({ requests: [] });
-    }
-
-    const conditions = [];
-    if (cleanWallet) {
-      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({ employerWallet: { $regex: new RegExp(`^${safeWallet}$`, "i") } });
-    }
-    if (cleanEmail) {
-      const safeEmail = cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({ employerEmail: { $regex: new RegExp(`^${safeEmail}$`, "i") } });
-    }
-    if (trackedIds.length > 0) {
-      conditions.push({ requestId: { $in: trackedIds } });
-    }
-
-    const filter = conditions.length > 1 ? { $or: conditions } : conditions[0];
+    const walletAddress = req.stakeholder.walletAddress.toLowerCase();
+    const filter = {
+      employerWallet: { $regex: new RegExp(`^${walletAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+    };
     const requests = await VerificationRequest.find(filter).sort({ requestedAt: -1 }).lean();
     res.json({ requests });
   } catch (err) {
@@ -624,7 +578,7 @@ router.get("/requests/:requestId/submitted-doc", requireAuth, async (req, res) =
 });
 
 // GET /api/verify/:certId/document - Employer downloads/views document once verified
-router.get("/:certId/document", async (req, res) => {
+router.get("/:certId/document", requireStakeholderAuth("employer", "student"), async (req, res) => {
   try {
     const normalizedId = req.params.certId.trim().toUpperCase();
     const stored = await Certificate.findOne({ certId: normalizedId }).select("+pdfBase64");
@@ -638,57 +592,13 @@ router.get("/:certId/document", async (req, res) => {
       });
     }
 
-    // Extract caller identity from JWT token (if provided in Authorization header)
-    let authWallet = "";
-    let authRole = "";
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      try {
-        const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
-        authWallet = decoded.walletAddress || "";
-        authRole = decoded.role || decoded.stakeholder || "";
-      } catch (e) {}
-    }
-
-    // Check query params
-    const { wallet, employerWallet, employerEmail, requestId } = req.query;
-    const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
-      ? employerWallet.trim()
-      : (typeof wallet === "string" && wallet.trim().startsWith("0x"))
-        ? wallet.trim()
-        : (authWallet.startsWith("0x") ? authWallet : "");
-
-    const isStudentOwner = cleanWallet && stored.studentWallet && cleanWallet.toLowerCase() === stored.studentWallet.toLowerCase();
-
-    const onChainApproved = cleanWallet ? await isVerificationApprovedOnChain(normalizedId, cleanWallet) : false;
-
-    let authorizedForCaller = false;
-    const conditions = [];
-    if (cleanWallet) {
-      const safeWallet = cleanWallet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({ employerWallet: { $regex: new RegExp("^" + safeWallet + "$", "i") } });
-    }
-    if (employerEmail && typeof employerEmail === "string" && employerEmail.trim().includes("@")) {
-      const safeEmail = employerEmail.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({ employerEmail: { $regex: new RegExp("^" + safeEmail + "$", "i") } });
-    }
-    if (requestId && typeof requestId === "string" && requestId.trim().startsWith("REQ-")) {
-      conditions.push({ requestId: requestId.trim().toUpperCase() });
-    }
-
-    if (conditions.length > 0) {
-      const query = {
-        certId: normalizedId,
-        status: "approved",
-        ...(conditions.length > 1 ? { $or: conditions } : conditions[0])
-      };
-      authorizedForCaller = await VerificationRequest.exists(query);
-    }
-
-    // Check if caller is an authenticated employer or recruiter verifying this non-revoked active credential
-    const isEmployerCaller = authRole === "employer" || Boolean(cleanWallet && cleanWallet.startsWith("0x"));
-
-    const isAuthorized = isStudentOwner || onChainApproved || authorizedForCaller || isEmployerCaller;
+    const { role, walletAddress } = req.stakeholder;
+    const isStudentOwner = role === "student" && stored.studentWallet &&
+      walletAddress.toLowerCase() === stored.studentWallet.toLowerCase();
+    const approvedForEmployer = role === "employer" && await VerificationRequest.exists(
+      approvedEmployerRequestQuery(normalizedId, walletAddress.toLowerCase())
+    );
+    const isAuthorized = Boolean(isStudentOwner || approvedForEmployer);
 
     if (!isAuthorized) {
       return res.status(403).json({
@@ -750,7 +660,7 @@ router.get("/:certId/document", async (req, res) => {
 });
 
 // GET /api/verify/:certId/attestation - DigiLocker-style cryptographic attestation audit receipt
-router.get("/:certId/attestation", async (req, res) => {
+router.get("/:certId/attestation", requireStakeholderAuth("employer", "student"), async (req, res) => {
   try {
     const normalizedId = req.params.certId.trim().toUpperCase();
     const stored = await Certificate.findOne({ certId: normalizedId }).select("+pdfBase64");
@@ -765,7 +675,17 @@ router.get("/:certId/attestation", async (req, res) => {
       // fallback
     }
 
-    const approvedRequest = await VerificationRequest.findOne({ certId: normalizedId, status: "approved" });
+    const { role, walletAddress } = req.stakeholder;
+    const isStudentOwner = role === "student" && stored.studentWallet &&
+      walletAddress.toLowerCase() === stored.studentWallet.toLowerCase();
+    const approvedRequest = role === "employer"
+      ? await VerificationRequest.findOne(
+        approvedEmployerRequestQuery(normalizedId, walletAddress.toLowerCase())
+      ).lean()
+      : null;
+    if (!isStudentOwner && !approvedRequest) {
+      return res.status(403).json({ message: "Attestation is available only to the credential owner or an approved employer" });
+    }
 
     res.json({
       attestationId: "ATTEST-" + crypto.createHash("sha256").update(normalizedId + (stored.documentHash || "")).digest("hex").slice(0, 16).toUpperCase(),
@@ -784,7 +704,7 @@ router.get("/:certId/attestation", async (req, res) => {
       smartContract: process.env.CONTRACT_ADDRESS || "0xCCCa30A14ff8189EC5d4f677C3b6dbd4Eb21A04D",
       status: stored.revoked ? "REVOKED" : "AUTHENTIC_VERIFIED",
       attestationTimestamp: new Date().toISOString(),
-      authorizedByInstitute: !!approvedRequest || true,
+      authorizedByInstitute: Boolean(approvedRequest),
       approvalTxHash: approvedRequest?.txHash || stored.txHash || ""
     });
   } catch (err) {
@@ -850,8 +770,28 @@ router.post("/", receivePdf, async (req, res) => {
       }
       if (stored.documentHash) {
         // Check if institute approval exists
-        const isApproved = await isVerificationApprovedOnChain(certId) ||
-          await VerificationRequest.exists({ certId, status: "approved" });
+        const authHeader = req.headers.authorization;
+        let isApproved = false;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.slice("Bearer ".length).trim();
+          if (token && !(await isTokenBlacklisted(token))) {
+            let decoded;
+            try {
+              decoded = jwt.verify(token, process.env.JWT_SECRET);
+            } catch (authError) {
+              decoded = null;
+            }
+            if (decoded?.role === "employer" && decoded.verifiedBySignature && typeof decoded.walletAddress === "string") {
+              isApproved = Boolean(await VerificationRequest.exists(
+                approvedEmployerRequestQuery(certId, decoded.walletAddress.toLowerCase())
+              ));
+            } else if (decoded?.role === "student" && typeof decoded.walletAddress === "string" && stored.studentWallet) {
+              isApproved = decoded.walletAddress.toLowerCase() === stored.studentWallet.toLowerCase();
+            } else if (decoded?.institutionId === stored.institutionId) {
+              isApproved = true;
+            }
+          }
+        }
         if (!isApproved) {
           return res.status(200).json({
             requiresApproval: true,

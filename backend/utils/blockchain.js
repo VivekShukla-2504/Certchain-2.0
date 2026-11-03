@@ -13,7 +13,6 @@ const CONTRACT_ABI = [
   "function revokeCredential(string calldata certId) external",
   "function revokeCertificate(string calldata certId) external",
   "function approveVerification(string calldata certId, address employer) external",
-  "function isVerificationApproved(string calldata certId, address employer) external view returns (bool)",
   "function verifyCredential(string calldata certId, bytes32 certHash) external view returns (bool isValid, address issuer, string memory institutionId, uint256 issuedAt, bool revoked, address recipient, string memory ipfsCid)",
   "function verifyCertificate(string calldata certId, bytes32 certHash) external view returns (bool isValid, address issuer, string memory institutionId, uint256 issuedAt, bool revoked, address recipient, string memory ipfsCid)",
   "function getCredential(string calldata certId) external view returns (tuple(bytes32 certHash, address issuer, address recipient, string institutionId, string ipfsCid, uint256 issuedAt, bool revoked))",
@@ -176,20 +175,17 @@ async function verifyClientTxOnChain(txHash) {
   };
 }
 
-async function approveVerificationOnChain(certId, employerWallet = ethers.ZeroAddress) {
-  const targetEmployer = (employerWallet && ethers.isAddress(employerWallet)) ? employerWallet : ethers.ZeroAddress;
-  const tx = await contract.approveVerification(certId, targetEmployer);
+async function approveVerificationOnChain(certId, employerWallet) {
+  if (
+    !employerWallet ||
+    !ethers.isAddress(employerWallet) ||
+    employerWallet.toLowerCase() === ethers.ZeroAddress.toLowerCase()
+  ) {
+    throw new Error("A valid employer wallet is required for verification approval");
+  }
+  const tx = await contract.approveVerification(certId, employerWallet);
   const receipt = await tx.wait();
   return receipt.hash;
-}
-
-async function isVerificationApprovedOnChain(certId, employerWallet = ethers.ZeroAddress) {
-  try {
-    const targetEmployer = (employerWallet && ethers.isAddress(employerWallet)) ? employerWallet : ethers.ZeroAddress;
-    return await contract.isVerificationApproved(certId, targetEmployer);
-  } catch (err) {
-    return false;
-  }
 }
 
 /** Real-time on-chain event synchronization daemon */
@@ -236,7 +232,6 @@ module.exports = {
   revokeOnChain,
   getStudentCertificatesOnChain,
   approveVerificationOnChain,
-  isVerificationApprovedOnChain,
   registerInstituteOnChain,
   revokeInstituteOnChain,
   isAuthorizedInstituteOnChain,

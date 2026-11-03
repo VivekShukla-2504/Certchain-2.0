@@ -124,17 +124,30 @@ describe("CertificateRegistry (OpenZeppelin AccessControl)", function () {
   });
 
   describe("4. Employer Verification Approval Queue", function () {
-    it("allows institute to authorize employer verification request", async function () {
-      const { registry, admin, student, employer } = await deployFixture();
+    it("authorizes only the employer named in the verification request", async function () {
+      const { registry, admin, student, employer, unauthorized } = await deployFixture();
       await registry.connect(admin).issueCredential("CERT-EMP-01", sampleHash(), student.address, "");
 
       expect(await registry.isVerificationApproved("CERT-EMP-01", employer.address)).to.equal(false);
+      expect(await registry.isVerificationApproved("CERT-EMP-01", unauthorized.address)).to.equal(false);
+      expect(await registry.isVerificationApproved("CERT-EMP-01", ethers.ZeroAddress)).to.equal(false);
 
       await expect(registry.connect(admin).approveVerification("CERT-EMP-01", employer.address))
         .to.emit(registry, "VerificationApproved")
         .withArgs("CERT-EMP-01", admin.address, employer.address);
 
       expect(await registry.isVerificationApproved("CERT-EMP-01", employer.address)).to.equal(true);
+      expect(await registry.isVerificationApproved("CERT-EMP-01", unauthorized.address)).to.equal(false);
+      expect(await registry.verificationApprovals("CERT-EMP-01")).to.equal(false);
+    });
+
+    it("rejects approvals that are not tied to an employer wallet", async function () {
+      const { registry, admin, student } = await deployFixture();
+      await registry.connect(admin).issueCredential("CERT-EMP-02", sampleHash(), student.address, "");
+
+      await expect(
+        registry.connect(admin).approveVerification("CERT-EMP-02", ethers.ZeroAddress)
+      ).to.be.revertedWith("Employer cannot be zero address");
     });
   });
 });

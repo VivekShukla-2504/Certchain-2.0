@@ -1,49 +1,26 @@
 const jwt = require("jsonwebtoken");
-const mongoose = require("mongoose");
 const Institution = require("../models/Institution");
 const TokenBlacklist = require("../models/TokenBlacklist");
 
-// High performance in-memory blacklist cache for sub-millisecond lookup
-const blacklistedTokensCache = new Set();
-
 async function isTokenBlacklisted(token) {
   if (!token) return false;
-  if (blacklistedTokensCache.has(token)) return true;
-  if (mongoose.connection.readyState !== 1) {
-    return false;
-  }
-  try {
-    const found = await TokenBlacklist.findOne({ token }).lean();
-    if (found) {
-      blacklistedTokensCache.add(token);
-      return true;
-    }
-  } catch (err) {
-    // If DB check fails, rely on memory cache
-  }
-  return false;
+  const found = await TokenBlacklist.findOne({ token }).lean();
+  return Boolean(found);
 }
 
 async function blacklistToken(token, expiresAt, reason = "logout") {
-  if (!token) return;
-  blacklistedTokensCache.add(token);
-  if (mongoose.connection.readyState !== 1) {
-    return;
+  if (!token) throw new Error("An authorization token is required");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  if (!Number.isFinite(decoded.exp)) throw new Error("Token must have an expiration time");
+  const expDate = expiresAt ? new Date(expiresAt) : new Date(decoded.exp * 1000);
+  if (!Number.isFinite(expDate.getTime()) || expDate.getTime() <= Date.now()) {
+    throw new Error("Token has expired");
   }
-  try {
-    let expDate = expiresAt;
-    if (!expDate) {
-      const decoded = jwt.decode(token);
-      expDate = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    }
-    await TokenBlacklist.findOneAndUpdate(
-      { token },
-      { token, expiresAt: expDate, reason },
-      { upsert: true, new: true }
-    );
-  } catch (err) {
-    console.warn("[CertChain Security] Failed to persist blacklisted token:", err.message);
-  }
+  await TokenBlacklist.findOneAndUpdate(
+    { token },
+    { token, expiresAt: expDate, reason },
+    { upsert: true, new: true }
+  );
 }
 
 async function requireAuth(req, res, next) {
@@ -56,12 +33,14 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ message: "Missing authorization token" });
   }
 
-  // 1. Strict Token Blacklist Check (revocation upon logout or administrative action)
-  if (await isTokenBlacklisted(token)) {
-    return res.status(401).json({ message: "Session token has been revoked or logged out. Please sign in again." });
+  try {
+    if (await isTokenBlacklisted(token)) {
+      return res.status(401).json({ message: "Session token has been revoked or logged out. Please sign in again." });
+    }
+  } catch (err) {
+    return res.status(503).json({ message: "Session access could not be checked" });
   }
 
-  // 2. Cryptographic JWT Verification
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -86,6 +65,47 @@ async function requireAuth(req, res, next) {
   }
 }
 
+function requireStakeholderAuth(...allowedRoles) {
+  return async (req, res, next) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Missing or invalid authorization header" });
+    }
+    const token = header.slice("Bearer ".length).trim();
+    if (!token) {
+      return res.status(401).json({ message: "Missing authorization token" });
+    }
+
+    try {
+      if (await isTokenBlacklisted(token)) {
+        return res.status(401).json({ message: "Session token has been revoked or logged out. Please sign in again." });
+      }
+    } catch (err) {
+      return res.status(503).json({ message: "Session access could not be checked" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+
+    if (
+      !decoded.verifiedBySignature ||
+      !allowedRoles.includes(decoded.role) ||
+      typeof decoded.walletAddress !== "string" ||
+      !/^0x[a-fA-F0-9]{40}$/.test(decoded.walletAddress)
+    ) {
+      return res.status(403).json({ message: "Your authenticated wallet does not have permission for this action" });
+    }
+
+    req.stakeholder = decoded;
+    req.authToken = token;
+    return next();
+  };
+}
+
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.institution || !allowedRoles.includes(req.institution.role)) {
@@ -97,6 +117,7 @@ function requireRole(...allowedRoles) {
 
 module.exports = {
   requireAuth,
+  requireStakeholderAuth,
   requireRole,
   verifyToken: requireAuth,
   blacklistToken,

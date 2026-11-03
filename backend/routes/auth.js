@@ -507,16 +507,19 @@ router.post("/wallet-login", async (req, res) => {
 router.post("/logout", async (req, res) => {
   try {
     const header = req.headers.authorization;
-    if (header && header.startsWith("Bearer ")) {
-      const token = header.split(" ")[1];
-      if (token) {
-        await blacklistToken(token);
-      }
+    if (!header || !header.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Missing or invalid authorization header" });
     }
+    const token = header.slice("Bearer ".length).trim();
+    if (!token) return res.status(401).json({ message: "Missing authorization token" });
+    await blacklistToken(token);
     return res.json({ message: "Successfully logged out and session revoked." });
   } catch (err) {
     console.error("[CertChain Auth] Error in logout:", err.message);
-    return res.status(500).json({ message: "Logout failed" });
+    if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError" || err.name === "NotBeforeError") {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+    return res.status(503).json({ message: "Logout could not be completed; session revocation was not confirmed" });
   }
 });
 

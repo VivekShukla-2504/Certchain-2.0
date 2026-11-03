@@ -34,7 +34,7 @@ contract CertificateRegistry is AccessControl {
     // institution wallet => institute ID mapping
     mapping(address => string) public instituteIdentifiers;
 
-    // verification approvals: certId => bool
+    // Legacy compatibility getter; new approvals are employer-specific only.
     mapping(string => bool) public verificationApprovals;
     // certId => employer wallet => approved
     mapping(string => mapping(address => bool)) public employerApprovals;
@@ -325,16 +325,12 @@ contract CertificateRegistry is AccessControl {
 
     function approveVerification(string calldata certId, address employer) external onlyRole(INSTITUTE_ROLE) {
         require(records[certId].issuedAt != 0, "Certificate does not exist");
-        verificationApprovals[certId] = true;
-        if (employer != address(0)) {
-            employerApprovals[certId][employer] = true;
-        }
+        require(employer != address(0), "Employer cannot be zero address");
+        employerApprovals[certId][employer] = true;
         emit VerificationApproved(certId, msg.sender, employer);
     }
 
     function isVerificationApproved(string calldata certId, address employer) external view returns (bool) {
-        if (verificationApprovals[certId]) return true;
-        if (employer != address(0) && employerApprovals[certId][employer]) return true;
-        return false;
+        return employer != address(0) && employerApprovals[certId][employer];
     }
 }

@@ -57,10 +57,24 @@ async function generateCertificatePdf({
 
     const { width, height } = document.page;
 
-    // Helper: Draw Elegant Double Border
+    // Helper: Draw Elegant Double Border with Corner Accents
     function drawBorders(primaryColor = "#1e3a8a", secondaryColor = "#93c5fd") {
       document.rect(20, 20, width - 40, height - 40).lineWidth(2.5).strokeColor(primaryColor).stroke();
       document.rect(26, 26, width - 52, height - 52).lineWidth(0.8).strokeColor(secondaryColor).stroke();
+      const c = 12;
+      document.rect(22, 22, c, c).lineWidth(0.5).strokeColor(primaryColor).stroke();
+      document.rect(width - 22 - c, 22, c, c).lineWidth(0.5).strokeColor(primaryColor).stroke();
+      document.rect(22, height - 22 - c, c, c).lineWidth(0.5).strokeColor(primaryColor).stroke();
+      document.rect(width - 22 - c, height - 22 - c, c, c).lineWidth(0.5).strokeColor(primaryColor).stroke();
+    }
+
+    // Helper: Draw Institutional Embossed Seal Emblem
+    function drawSeal(sealX, sealY, primaryColor = "#1e3a8a", title = "OFFICIAL SEAL", subtitle = "SEPOLIA VERIFIED") {
+      document.circle(sealX, sealY, 26).lineWidth(1.2).strokeColor(primaryColor).stroke();
+      document.circle(sealX, sealY, 22).lineWidth(0.6).strokeColor(primaryColor).stroke();
+      document.fillColor(primaryColor).font("Times-Bold").fontSize(5.2).text(title, sealX - 22, sealY - 8, { width: 44, align: "center" });
+      document.fillColor(primaryColor).font("Times-Roman").fontSize(5).text("★ ★ ★", sealX - 22, sealY - 1, { width: 44, align: "center" });
+      document.fillColor(primaryColor).font("Times-Bold").fontSize(4.5).text(subtitle, sealX - 22, sealY + 6, { width: 44, align: "center" });
     }
 
     // Helper: Draw Institution Header
@@ -203,9 +217,11 @@ async function generateCertificatePdf({
       document.text(`CGPA: ${grade || "9.4"}`, 460, currentY + 7, { width: 75, align: "center" });
 
       // Signatures
-      const sigY = currentY + 45;
+      const sigY = Math.min(Math.max(currentY + 40, height - 175), height - 130);
       document.moveTo(60, sigY).lineTo(200, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Roman").fontSize(8.5).text("Prepared & Checked by", 60, sigY + 4, { width: 140, align: "center" });
+
+      drawSeal(width / 2, sigY + 5, "#1e3a8a", "EXAMINATION SEAL", "GRADE VERIFIED");
 
       document.moveTo(width - 240, sigY).lineTo(width - 100, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Bold").fontSize(8.5).text("Controller of Examinations", width - 240, sigY + 4, { width: 140, align: "center" });
@@ -272,6 +288,8 @@ async function generateCertificatePdf({
       const sigY = height - 130;
       document.moveTo(90, sigY).lineTo(230, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Roman").fontSize(9).text(`Dated: ${formattedDate}`, 90, sigY + 5, { width: 140, align: "center" });
+
+      drawSeal(width / 2, sigY + 5, "#78350f", "MIGRATION CLEARANCE", "NO DUES CONFIRMED");
 
       document.moveTo(width - 270, sigY).lineTo(width - 130, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Bold").fontSize(9.5).text("Registrar / Academic Head", width - 270, sigY + 5, { width: 140, align: "center" });
@@ -343,6 +361,8 @@ async function generateCertificatePdf({
       document.moveTo(90, sigY).lineTo(230, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Roman").fontSize(9).text(`Dated: ${formattedDate}`, 90, sigY + 5, { width: 140, align: "center" });
 
+      drawSeal(width / 2, sigY + 5, "#064e3b", "CONDUCT ATTESTATION", "BONAFIDE RECORD");
+
       document.moveTo(width - 270, sigY).lineTo(width - 130, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Bold").fontSize(9.5).text("Dean of Student Welfare / Proctor", width - 270, sigY + 5, { width: 140, align: "center" });
 
@@ -399,6 +419,8 @@ async function generateCertificatePdf({
       const sigY = height - 145;
       document.moveTo(50, sigY).lineTo(200, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Roman").fontSize(9).text(`Dated: ${formattedDate}`, 50, sigY + 5, { width: 150, align: "center" });
+
+      drawSeal(width / 2, sigY + 5, "#1e1b4b", "INSTITUTIONAL NOC", "OFFICIAL ENDORSEMENT");
 
       document.moveTo(width - 230, sigY).lineTo(width - 50, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Bold").fontSize(9.5).text("Training & Placement Officer / Registrar", width - 230, sigY + 5, { width: 180, align: "center" });
@@ -459,6 +481,8 @@ async function generateCertificatePdf({
       const sigY = height - 130;
       document.moveTo(90, sigY).lineTo(230, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Roman").fontSize(9).text(`Issued on: ${formattedDate}`, 90, sigY + 5, { width: 140, align: "center" });
+
+      drawSeal(width / 2, sigY + 5, "#1e3a5f", "PROVISIONAL DEGREE", "SEPOLIA SECURED");
 
       document.moveTo(width - 270, sigY).lineTo(width - 130, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Bold").fontSize(9.5).text("Controller of Examinations", width - 270, sigY + 5, { width: 140, align: "center" });
@@ -531,6 +555,8 @@ async function generateCertificatePdf({
       const sigY = height - 130;
       document.moveTo(90, sigY).lineTo(230, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Roman").fontSize(9).text("Registrar", 90, sigY + 5, { width: 140, align: "center" });
+
+      drawSeal(width / 2, sigY + 5, "#702f3c", "ACADEMIC SENATE", "OFFICIAL CONFERMENT");
 
       document.moveTo(width - 270, sigY).lineTo(width - 130, sigY).lineWidth(0.8).strokeColor("#94a3b8").stroke();
       document.fillColor("#334155").font("Times-Bold").fontSize(9.5).text("Vice-Chancellor / Director", width - 270, sigY + 5, { width: 140, align: "center" });

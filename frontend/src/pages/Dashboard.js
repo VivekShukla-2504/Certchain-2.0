@@ -179,6 +179,13 @@ export default function Dashboard() {
   // Employer Approvals State
   const [approvingId, setApprovingId] = useState("");
 
+  // Filter & Grouping State for Issued Credentials
+  const [certSearch, setCertSearch] = useState("");
+  const [certTypeFilter, setCertTypeFilter] = useState("all");
+  const [certStatusFilter, setCertStatusFilter] = useState("all");
+  const [certViewMode, setCertViewMode] = useState("grouped"); // "grouped" | "table"
+  const [collapsedStudents, setCollapsedStudents] = useState({});
+
   const canManage = canManageCertificates();
 
   // Load initial data and connect wallet
@@ -187,7 +194,7 @@ export default function Dashboard() {
     async function loadData() {
       try {
         const [certRes, reqRes, stuRes] = await Promise.all([
-          api.get("/certificates"),
+          api.get("/certificates?limit=100"),
           api.get("/verify/requests").catch(() => ({ data: { requests: [] } })),
           api.get("/students").catch(() => ({ data: { students: [] } }))
         ]);
@@ -405,7 +412,7 @@ export default function Dashboard() {
       setActionSuccess(`Certificate ${res.data.certificate.certId} successfully issued and recorded on Ethereum Sepolia!`);
 
       // Refresh certificates
-      const refreshed = await api.get("/certificates");
+      const refreshed = await api.get("/certificates?limit=100");
       setData(refreshed.data);
     } catch (err) {
       setIssuingState("failed");
@@ -430,7 +437,7 @@ export default function Dashboard() {
       setActionSuccess(`Certificate ${revokingCert.certId} has been revoked on Sepolia.`);
 
       // Refresh list
-      const refreshed = await api.get("/certificates");
+      const refreshed = await api.get("/certificates?limit=100");
       setData(refreshed.data);
     } catch (err) {
       setRevokingStatus("error");
@@ -503,6 +510,98 @@ export default function Dashboard() {
       (s.department && s.department.toLowerCase().includes(term))
     );
   });
+
+  // Filtered certificates for Tab 4 (Issued Credentials)
+  const filteredCertificates = certificates.filter((cert) => {
+    if (certSearch.trim()) {
+      const q = certSearch.trim().toLowerCase();
+      const matchesName = (cert.candidateName || "").toLowerCase().includes(q);
+      const matchesRoll = (cert.rollNumber || "").toLowerCase().includes(q);
+      const matchesId = (cert.certId || "").toLowerCase().includes(q);
+      const matchesCourse = (cert.course || "").toLowerCase().includes(q);
+      const matchesDept = (cert.department || "").toLowerCase().includes(q);
+      if (!matchesName && !matchesRoll && !matchesId && !matchesCourse && !matchesDept) return false;
+    }
+    if (certTypeFilter !== "all") {
+      const cType = cert.documentType || "Degree";
+      if (certTypeFilter === "Marksheet" && cType !== "Marksheet" && cType !== "Transcript") return false;
+      if (certTypeFilter !== "Marksheet" && cType !== certTypeFilter) return false;
+    }
+    if (certStatusFilter === "active" && cert.revoked) return false;
+    if (certStatusFilter === "revoked" && !cert.revoked) return false;
+    return true;
+  });
+
+  // Group certificates strictly by student for an organized, uncluttered view
+  const groupedByStudent = React.useMemo(() => {
+    const groups = {};
+    filteredCertificates.forEach((cert) => {
+      const key = (cert.rollNumber || cert.candidateName || "UNKNOWN").trim().toUpperCase();
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          rollNumber: cert.rollNumber || "N/A",
+          candidateName: cert.candidateName || "Student",
+          studentEmail: cert.studentEmail || "",
+          studentWallet: cert.studentWallet || "",
+          department: cert.department || "",
+          academicSession: cert.academicSession || "",
+          certificates: []
+        };
+      }
+      if (cert.studentEmail && !groups[key].studentEmail) groups[key].studentEmail = cert.studentEmail;
+      if (cert.studentWallet && !groups[key].studentWallet) groups[key].studentWallet = cert.studentWallet;
+      if (cert.department && !groups[key].department) groups[key].department = cert.department;
+      if (cert.academicSession && !groups[key].academicSession) groups[key].academicSession = cert.academicSession;
+      groups[key].certificates.push(cert);
+    });
+    return Object.values(groups);
+  }, [filteredCertificates]);
+
+  function getDocTypeMeta(type) {
+    switch (type) {
+      case "Marksheet":
+      case "Transcript":
+        return { icon: "📊", label: type || "Marksheet", color: "#1e3a8a", bg: "#eff6ff", border: "#bfdbfe" };
+      case "Migration":
+        return { icon: "✈️", label: "Migration", color: "#92400e", bg: "#fef3c7", border: "#fde68a" };
+      case "Character":
+        return { icon: "🏅", label: "Character", color: "#065f46", bg: "#ecfdf5", border: "#a7f3d0" };
+      case "NOC":
+        return { icon: "📄", label: "NOC", color: "#3730a3", bg: "#e0e7ff", border: "#c7d2fe" };
+      case "Provisional":
+        return { icon: "📜", label: "Provisional", color: "#0369a1", bg: "#e0f2fe", border: "#bae6fd" };
+      case "Degree":
+      case "Diploma":
+      default:
+        return { icon: "🎓", label: type || "Degree", color: "#702f3c", bg: "#fdf2f4", border: "#fbcfe8" };
+    }
+  }
+
+  function handleQuickIssueForStudent(group) {
+    const matched = students.find((s) => s.enrollmentNumber?.toLowerCase() === group.rollNumber?.toLowerCase()) || {
+      fullName: group.candidateName,
+      enrollmentNumber: group.rollNumber,
+      course: group.certificates[0]?.course || "",
+      department: group.department || "",
+      academicSession: group.academicSession || "2022-2026",
+      walletAddress: group.studentWallet || "",
+      email: group.studentEmail || ""
+    };
+    setSelectedStudent(matched);
+    setIssueForm((prev) => ({
+      ...prev,
+      candidateName: matched.fullName || group.candidateName,
+      rollNumber: matched.enrollmentNumber || group.rollNumber,
+      course: matched.course || prev.course,
+      department: matched.department || group.department || "",
+      academicSession: matched.academicSession || group.academicSession || "2022-2026",
+      studentWallet: matched.walletAddress || group.studentWallet || "",
+      studentEmail: matched.email || group.studentEmail || ""
+    }));
+    setIssueStep(2);
+    setActiveTab("issue");
+  }
 
   return (
     <div className="page dashboard-page" style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem 1rem" }}>
@@ -578,7 +677,7 @@ export default function Dashboard() {
           className={`dashboard-nav-tab ${activeTab === "credentials" ? "active" : ""}`}
           onClick={() => setActiveTab("credentials")}
         >
-          Issued Credentials ({certificates.length})
+          Issued Credentials ({stats.total || certificates.length})
         </button>
         <button
           type="button"
@@ -1529,24 +1628,377 @@ export default function Dashboard() {
       {/* TAB 4: ISSUED CREDENTIALS */}
       {activeTab === "credentials" && (
         <article className="card dashboard-panel">
-          <div className="panel-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div className="panel-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
             <div>
-              <h2>Issued Academic Credentials</h2>
-              <p className="muted small">All certificates anchored to the blockchain by your institution.</p>
+              <h2 style={{ margin: "0 0 0.25rem 0" }}>Issued Academic Credentials</h2>
+              <p className="muted small" style={{ margin: 0 }}>All certificates anchored to the blockchain by your institution.</p>
             </div>
-            <span className="badge badge-neutral">{certificates.length} credentials</span>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <span className="badge badge-neutral" style={{ fontWeight: 600 }}>{stats.total || certificates.length} total credentials</span>
+              <span className="badge badge-primary" style={{ fontWeight: 600 }}>{groupedByStudent.length} student groups</span>
+            </div>
           </div>
 
-          {certificates.length === 0 ? (
+          {/* Search, Filter & View Controls */}
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", padding: "0.75rem 1rem", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: "1.25rem" }}>
+            <div style={{ flex: "1 1 240px" }}>
+              <input
+                type="text"
+                placeholder="🔍 Search candidate, roll number, course, cert ID..."
+                value={certSearch}
+                onChange={(e) => setCertSearch(e.target.value)}
+                style={{ width: "100%", padding: "0.45rem 0.75rem", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "#fff" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <select
+                value={certTypeFilter}
+                onChange={(e) => setCertTypeFilter(e.target.value)}
+                style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "#fff", cursor: "pointer" }}
+              >
+                <option value="all">All Document Types</option>
+                <option value="Marksheet">Marksheet / Transcript</option>
+                <option value="Migration">Migration Certificate</option>
+                <option value="Character">Character Certificate</option>
+                <option value="NOC">No Objection Certificate (NOC)</option>
+                <option value="Degree">Degree Certificate</option>
+                <option value="Provisional">Provisional Certificate</option>
+              </select>
+
+              <select
+                value={certStatusFilter}
+                onChange={(e) => setCertStatusFilter(e.target.value)}
+                style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "#fff", cursor: "pointer" }}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active On-Chain</option>
+                <option value="revoked">Revoked</option>
+              </select>
+
+              {/* View Switcher: Grouped by Student vs Flat Table */}
+              <div style={{ display: "inline-flex", borderRadius: 6, border: "1px solid #cbd5e1", overflow: "hidden" }}>
+                <button
+                  type="button"
+                  onClick={() => setCertViewMode("grouped")}
+                  style={{
+                    border: "none",
+                    padding: "0.4rem 0.75rem",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    background: certViewMode === "grouped" ? "#2563eb" : "#f1f5f9",
+                    color: certViewMode === "grouped" ? "#fff" : "#475569"
+                  }}
+                  title="Group credentials by student"
+                >
+                  👥 By Student ({groupedByStudent.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCertViewMode("table")}
+                  style={{
+                    border: "none",
+                    padding: "0.4rem 0.75rem",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    background: certViewMode === "table" ? "#2563eb" : "#f1f5f9",
+                    color: certViewMode === "table" ? "#fff" : "#475569"
+                  }}
+                  title="View as traditional chronological table"
+                >
+                  📋 Flat Table ({filteredCertificates.length})
+                </button>
+              </div>
+
+              {(certSearch || certTypeFilter !== "all" || certStatusFilter !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => { setCertSearch(""); setCertTypeFilter("all"); setCertStatusFilter("all"); }}
+                  style={{ background: "transparent", border: "none", color: "#64748b", fontSize: "0.8rem", cursor: "pointer", textDecoration: "underline" }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {filteredCertificates.length === 0 ? (
             <div className="dashboard-empty" style={{ padding: "2.5rem 1rem", textAlign: "center" }}>
-              <h3>No certificates issued yet</h3>
-              <p className="muted small">Click "Issue Certificate" to anchor your institution's first academic credential.</p>
+              <h3>No matching certificates found</h3>
+              <p className="muted small">Try adjusting your search criteria or filter options.</p>
+            </div>
+          ) : certViewMode === "grouped" ? (
+            /* =================================================== */
+            /* 👥 GROUPED BY STUDENT VIEW (UNCLUTTERED & ELEGANT) */
+            /* =================================================== */
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              {groupedByStudent.map((group) => {
+                const isCollapsed = collapsedStudents[group.key];
+                const initials = (group.candidateName || "S")
+                  .split(" ")
+                  .map((w) => w[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+
+                return (
+                  <div
+                    key={group.key}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      background: "#ffffff",
+                      overflow: "hidden",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                    }}
+                  >
+                    {/* Student Header Bar */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "0.75rem",
+                        padding: "0.9rem 1.25rem",
+                        background: "linear-gradient(to right, #f8fafc, #f1f5f9)",
+                        borderBottom: isCollapsed ? "none" : "1px solid #e2e8f0"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                        <div
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: "50%",
+                            background: "linear-gradient(135deg, #1e3a8a, #3b82f6)",
+                            color: "#ffffff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 700,
+                            fontSize: "0.95rem",
+                            flexShrink: 0
+                          }}
+                        >
+                          {initials}
+                        </div>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: "1.05rem", color: "#0f172a" }}>{group.candidateName}</strong>
+                            <span style={{ fontSize: "0.75rem", padding: "0.15rem 0.45rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 4, fontWeight: 600 }}>
+                              Roll: {group.rollNumber}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
+                            {group.studentEmail && <span>📧 {group.studentEmail}</span>}
+                            {group.department && <span>🏛️ {group.department}</span>}
+                            {group.academicSession && <span>📅 {group.academicSession}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                        {group.studentWallet && (
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              fontSize: "0.75rem",
+                              padding: "0.2rem 0.5rem",
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              borderRadius: 4,
+                              border: "1px solid #fde68a"
+                            }}
+                            title={`Wallet: ${group.studentWallet}`}
+                          >
+                            🦊 {group.studentWallet.slice(0, 6)}...{group.studentWallet.slice(-4)}
+                          </span>
+                        )}
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.2rem 0.6rem",
+                            background: "#dbeafe",
+                            color: "#1e40af",
+                            borderRadius: 12,
+                            fontWeight: 700
+                          }}
+                        >
+                          {group.certificates.length} {group.certificates.length === 1 ? "Credential" : "Credentials"}
+                        </span>
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          style={{ fontSize: "0.75rem", padding: "0.25rem 0.55rem", borderColor: "#93c5fd", color: "#2563eb" }}
+                          onClick={() => handleQuickIssueForStudent(group)}
+                          title="Issue another credential for this student"
+                        >
+                          + Issue New
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedStudents(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
+                          style={{ background: "transparent", border: "none", fontSize: "0.85rem", cursor: "pointer", color: "#64748b", padding: "0.2rem 0.4rem" }}
+                          title={isCollapsed ? "Expand credentials" : "Collapse credentials"}
+                        >
+                          {isCollapsed ? "▼ Show" : "▲ Hide"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Student's Credentials List */}
+                    {!isCollapsed && (
+                      <div style={{ padding: "0.5rem 1rem" }}>
+                        <div className="certificate-table-wrap" style={{ margin: 0, boxShadow: "none" }}>
+                          <table className="certificate-table" style={{ fontSize: "0.85rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc" }}>
+                                <th style={{ width: 140 }}>Credential Type</th>
+                                <th>Certificate ID</th>
+                                <th>Course / Qualification</th>
+                                <th>Status</th>
+                                <th>Sepolia Tx</th>
+                                <th>Issued Date</th>
+                                <th style={{ textAlign: "right" }}>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.certificates.map((cert) => {
+                                const docMeta = getDocTypeMeta(cert.documentType);
+                                return (
+                                  <tr key={cert.certId}>
+                                    <td data-label="Type">
+                                      <span
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                          fontSize: "0.78rem",
+                                          padding: "0.2rem 0.55rem",
+                                          borderRadius: 4,
+                                          fontWeight: 600,
+                                          background: docMeta.bg,
+                                          color: docMeta.color,
+                                          border: `1px solid ${docMeta.border}`
+                                        }}
+                                      >
+                                        <span>{docMeta.icon}</span>
+                                        <span>{docMeta.label}</span>
+                                      </span>
+                                    </td>
+                                    <td data-label="Certificate ID">
+                                      <button
+                                        type="button"
+                                        onClick={() => setInspectingCert(cert)}
+                                        style={{
+                                          background: "transparent",
+                                          border: "none",
+                                          padding: 0,
+                                          fontFamily: "monospace",
+                                          fontWeight: 700,
+                                          color: "#2563eb",
+                                          cursor: "pointer",
+                                          textDecoration: "underline",
+                                          fontSize: "0.82rem"
+                                        }}
+                                        title="Click to view full record"
+                                      >
+                                        {cert.certId}
+                                      </button>
+                                    </td>
+                                    <td data-label="Course">
+                                      <strong style={{ color: "#0f172a" }}>{cert.course}</strong>
+                                      <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                        Grade/SGPA: <strong style={{ color: "#0f172a" }}>{cert.grade}</strong>
+                                      </div>
+                                    </td>
+                                    <td data-label="Status">
+                                      <span className={`badge ${cert.revoked ? "badge-revoked" : "badge-success"}`} style={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                                        {cert.revoked ? (
+                                          <span className="status-pill status-pill-danger"><span className="status-dot danger" /> Revoked</span>
+                                        ) : (
+                                          <span className="status-pill status-pill-success"><span className="status-dot success" /> Active On-Chain</span>
+                                        )}
+                                      </span>
+                                    </td>
+                                    <td data-label="Sepolia Tx">
+                                      {cert.txHash && cert.txHash.startsWith("0x") ? (
+                                        <a
+                                          href={`https://sepolia.etherscan.io/tx/${cert.txHash}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          style={{ fontFamily: "monospace", fontSize: "0.78rem", color: "#2563eb" }}
+                                        >
+                                          {cert.txHash.slice(0, 10)}... ↗
+                                        </a>
+                                      ) : (
+                                        <span className="muted small">Confirmed</span>
+                                      )}
+                                    </td>
+                                    <td data-label="Date">
+                                      <small style={{ color: "#475569" }}>{formatDate(cert.issueDate || cert.createdAt)}</small>
+                                    </td>
+                                    <td data-label="Actions" style={{ textAlign: "right" }}>
+                                      <div style={{ display: "inline-flex", gap: "0.4rem", alignItems: "center" }}>
+                                        <button
+                                          type="button"
+                                          className="button button-secondary"
+                                          style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", color: "#2563eb", borderColor: "#93c5fd" }}
+                                          onClick={() => setInspectingCert(cert)}
+                                          title="View student profile and credential verification record"
+                                        >
+                                          👁️ Details
+                                        </button>
+                                        <a
+                                          href={`${API_ORIGIN}/api/certificates/${cert.certId}/download-student`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="button button-secondary"
+                                          style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", textDecoration: "none" }}
+                                        >
+                                          📥 PDF
+                                        </a>
+                                        {!cert.revoked && (
+                                          <button
+                                            type="button"
+                                            className="button button-secondary"
+                                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", color: "#dc2626", borderColor: "#fca5a5" }}
+                                            onClick={() => {
+                                              setRevokingCert(cert);
+                                              setActiveTab("revocation");
+                                            }}
+                                            title="Revoke certificate on Ethereum Sepolia"
+                                          >
+                                            ⚠️ Revoke
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
+            /* ===================================== */
+            /* 📋 FLAT TABLE VIEW (TRADITIONAL SCAN) */
+            /* ===================================== */
             <div className="certificate-table-wrap">
               <table className="certificate-table">
                 <thead>
                   <tr>
+                    <th>Type</th>
                     <th>Certificate ID</th>
                     <th>Candidate</th>
                     <th>Course & Qualification</th>
@@ -1557,113 +2009,101 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {certificates.map((cert) => (
-                    <tr key={cert.certId}>
-                      <td data-label="Certificate ID">
-                        <button
-                          type="button"
-                          onClick={() => setInspectingCert(cert)}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            padding: 0,
-                            fontFamily: "monospace",
-                            fontWeight: 700,
-                            color: "#2563eb",
-                            cursor: "pointer",
-                            textDecoration: "underline"
-                          }}
-                          title="Click to view full student profile and credential verification record"
-                        >
-                          {cert.certId}
-                        </button>
-                      </td>
-                      <td data-label="Candidate">
-                        <button
-                          type="button"
-                          onClick={() => setInspectingCert(cert)}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            padding: 0,
-                            textAlign: "left",
-                            cursor: "pointer",
-                            display: "block"
-                          }}
-                          title="Click to inspect student and credential details"
-                        >
-                          <strong style={{ color: "#0f172a", textDecoration: "underline", display: "block" }}>
-                            {cert.candidateName}
-                          </strong>
-                          <small style={{ color: "var(--cc-muted)" }}>{cert.rollNumber}</small>
-                        </button>
-                      </td>
-                      <td data-label="Course">
-                        <strong>{cert.course}</strong>
-                        <small>{cert.documentType || "Degree"} · Grade: {cert.grade}</small>
-                      </td>
-                      <td data-label="Status">
-                        <span
-                          className={`badge ${cert.revoked ? "badge-revoked" : "badge-success"}`}
-                          style={{ fontWeight: 700 }}
-                        >
-                          {cert.revoked ? <span className="status-pill status-pill-danger"><span className="status-dot danger" /> Revoked</span> : <span className="status-pill status-pill-success"><span className="status-dot success" /> Active On-Chain</span>}
-                        </span>
-                      </td>
-                      <td data-label="Sepolia Tx">
-                        {cert.txHash && cert.txHash.startsWith("0x") ? (
-                          <a
-                            href={`https://sepolia.etherscan.io/tx/${cert.txHash}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#2563eb" }}
-                          >
-                            {cert.txHash.slice(0, 10)}... ↗
-                          </a>
-                        ) : (
-                          <span className="muted small">Confirmed</span>
-                        )}
-                      </td>
-                      <td data-label="Date">
-                        <small>{formatDate(cert.issueDate || cert.createdAt)}</small>
-                      </td>
-                      <td data-label="Action">
-                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+                  {filteredCertificates.map((cert) => {
+                    const docMeta = getDocTypeMeta(cert.documentType);
+                    return (
+                      <tr key={cert.certId}>
+                        <td data-label="Type">
+                          <span style={{ fontSize: "0.8rem", padding: "0.15rem 0.45rem", borderRadius: 4, background: docMeta.bg, color: docMeta.color, border: `1px solid ${docMeta.border}`, fontWeight: 600 }}>
+                            {docMeta.icon} {docMeta.label}
+                          </span>
+                        </td>
+                        <td data-label="Certificate ID">
                           <button
                             type="button"
-                            className="button button-secondary"
-                            style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem", color: "#2563eb", borderColor: "#93c5fd" }}
                             onClick={() => setInspectingCert(cert)}
-                            title="View student profile and credential verification record"
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              padding: 0,
+                              fontFamily: "monospace",
+                              fontWeight: 700,
+                              color: "#2563eb",
+                              cursor: "pointer",
+                              textDecoration: "underline"
+                            }}
                           >
-                            👁️ View Details
+                            {cert.certId}
                           </button>
-                          <a
-                            href={`${API_ORIGIN}/api/certificates/${cert.certId}/download-student`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="button button-secondary"
-                            style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}
+                        </td>
+                        <td data-label="Candidate">
+                          <button
+                            type="button"
+                            onClick={() => setInspectingCert(cert)}
+                            style={{ background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", display: "block" }}
                           >
-                            📥 PDF
-                          </a>
-                          {!cert.revoked && (
+                            <strong style={{ color: "#0f172a", textDecoration: "underline", display: "block" }}>{cert.candidateName}</strong>
+                            <small style={{ color: "var(--cc-muted)" }}>{cert.rollNumber}</small>
+                          </button>
+                        </td>
+                        <td data-label="Course">
+                          <strong>{cert.course}</strong>
+                          <small>Grade: {cert.grade}</small>
+                        </td>
+                        <td data-label="Status">
+                          <span className={`badge ${cert.revoked ? "badge-revoked" : "badge-success"}`} style={{ fontWeight: 700 }}>
+                            {cert.revoked ? <span className="status-pill status-pill-danger"><span className="status-dot danger" /> Revoked</span> : <span className="status-pill status-pill-success"><span className="status-dot success" /> Active On-Chain</span>}
+                          </span>
+                        </td>
+                        <td data-label="Sepolia Tx">
+                          {cert.txHash && cert.txHash.startsWith("0x") ? (
+                            <a href={`https://sepolia.etherscan.io/tx/${cert.txHash}`} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#2563eb" }}>
+                              {cert.txHash.slice(0, 10)}... ↗
+                            </a>
+                          ) : (
+                            <span className="muted small">Confirmed</span>
+                          )}
+                        </td>
+                        <td data-label="Date">
+                          <small>{formatDate(cert.issueDate || cert.createdAt)}</small>
+                        </td>
+                        <td data-label="Action">
+                          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
                             <button
                               type="button"
                               className="button button-secondary"
-                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem", color: "#dc2626" }}
-                              onClick={() => {
-                                setRevokingCert(cert);
-                                setActiveTab("revocation");
-                              }}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem", color: "#2563eb", borderColor: "#93c5fd" }}
+                              onClick={() => setInspectingCert(cert)}
                             >
-                              ⚠️ Revoke
+                              👁️ View Details
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <a
+                              href={`${API_ORIGIN}/api/certificates/${cert.certId}/download-student`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="button button-secondary"
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}
+                            >
+                              📥 PDF
+                            </a>
+                            {!cert.revoked && (
+                              <button
+                                type="button"
+                                className="button button-secondary"
+                                style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem", color: "#dc2626" }}
+                                onClick={() => {
+                                  setRevokingCert(cert);
+                                  setActiveTab("revocation");
+                                }}
+                              >
+                                ⚠️ Revoke
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

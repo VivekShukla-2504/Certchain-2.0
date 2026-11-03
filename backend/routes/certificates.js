@@ -491,7 +491,7 @@ router.get("/", requireAuth, async (req, res) => {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
     const status = req.query.status === "revoked" || req.query.status === "active" ? req.query.status : "all";
     const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || (isListRequest ? 20 : 10), 1), 100);
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 500);
 
     if (search) {
       const expression = new RegExp(escapeRegex(search), "i");

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const nodemailer = require("nodemailer");
 
 function getMailTransport() {
@@ -19,9 +20,10 @@ function getMailTransport() {
         user,
         pass: cleanPass
       },
-      connectionTimeout: 4000,
-      greetingTimeout: 4000,
-      socketTimeout: 5000
+      family: 4,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000
     });
   }
 
@@ -36,9 +38,10 @@ function getMailTransport() {
       user,
       pass: cleanPass
     },
-    connectionTimeout: 4000,
-      greetingTimeout: 4000,
-      socketTimeout: 5000
+    family: 4,
+    connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000
   });
 }
 
@@ -93,7 +96,31 @@ async function sendViaResend({ to, subject, text, attachments = [] }) {
  * 2. Falls back to Nodemailer SMTP
  */
 async function sendEmailMessage({ to, subject, text, attachments = [] }) {
-  // 1. Check Resend HTTPS API (works everywhere, including Render free tier)
+  const transport = getMailTransport();
+
+  // 1. If SMTP / Gmail credentials are configured, dispatch directly via SMTP (unrestricted delivery to all domains)
+  if (transport) {
+    try {
+      console.log(`[CertChain Mailer] Dispatching via SMTP to ${to}...`);
+      const info = await transport.sendMail({
+        from: process.env.MAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject,
+        text,
+        attachments: attachments ? attachments.map((att) => ({
+          filename: att.filename,
+          content: att.content,
+          contentType: att.contentType || "application/octet-stream"
+        })) : []
+      });
+      console.log(`[CertChain Mailer] Delivered via SMTP to ${to} (MessageId: ${info.messageId})`);
+      return info;
+    } catch (smtpErr) {
+      console.warn(`[CertChain Mailer] SMTP delivery failed to ${to} (${smtpErr.message}), trying Resend fallback...`);
+    }
+  }
+
+  // 2. Fallback to Resend HTTPS API if configured (works in cloud environments like Render)
   if (process.env.RESEND_API_KEY) {
     try {
       console.log(`[CertChain Mailer] Dispatching via Resend HTTPS to ${to}...`);
@@ -101,38 +128,14 @@ async function sendEmailMessage({ to, subject, text, attachments = [] }) {
       console.log(`[CertChain Mailer] Delivered via Resend to ${to} (ID: ${result.messageId})`);
       return result;
     } catch (resendErr) {
-      console.warn(`[CertChain Mailer] Resend HTTPS failed (${resendErr.message}), falling back to SMTP...`);
+      console.error(`[CertChain Mailer] Resend HTTPS failed to ${to}: ${resendErr.message}`);
+      throw resendErr;
     }
   }
 
-  // 2. Check SMTP transport
-  const transport = getMailTransport();
   if (!transport) {
     console.warn(`[CertChain Mailer] No email credentials configured. Simulated email to: ${to}`);
     return null;
-  }
-
-  try {
-    console.log(`[CertChain Mailer] Dispatching via SMTP to ${to}...`);
-    const info = await transport.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      to,
-      subject,
-      text,
-      attachments: attachments ? attachments.map((att) => ({
-        filename: att.filename,
-        content: att.content,
-        contentType: att.contentType || "application/octet-stream"
-      })) : []
-    });
-    console.log(`[CertChain Mailer] Delivered via SMTP to ${to} (MessageId: ${info.messageId})`);
-    return info;
-  } catch (err) {
-    console.error(`[CertChain Mailer] SMTP delivery failed to ${to}: ${err.message}`);
-    if (err.message && (err.message.includes("ETIMEDOUT") || err.message.includes("timeout"))) {
-      console.warn("[CertChain Mailer] Note: Render Free Tier firewalls block raw outbound SMTP ports 25, 465, and 587. Configure RESEND_API_KEY for HTTPS delivery.");
-    }
-    throw err;
   }
 }
 

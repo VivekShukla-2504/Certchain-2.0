@@ -2,10 +2,12 @@ const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs/promises");
+const jwt = require("jsonwebtoken");
 const Certificate = require("../models/Certificate");
 const Institution = require("../models/Institution");
 const VerificationRequest = require("../models/VerificationRequest");
 const { hashCertificateData, hashFileBuffer } = require("../utils/hash");
+const { generateCertificatePdf } = require("../utils/certificatePdf");
 const {
   verifyOnChain,
   getRecordOnChain,
@@ -621,22 +623,42 @@ router.get("/requests/:requestId/submitted-doc", requireAuth, async (req, res) =
   }
 });
 
-// GET /api/verify/:certId/document - Employer downloads/views document once Institute approves
+// GET /api/verify/:certId/document - Employer downloads/views document once verified
 router.get("/:certId/document", async (req, res) => {
   try {
     const normalizedId = req.params.certId.trim().toUpperCase();
     const stored = await Certificate.findOne({ certId: normalizedId });
-    if (!stored || !stored.documentHash) {
-      return res.status(404).json({ message: "Certificate PDF not found" });
+    if (!stored) {
+      return res.status(404).json({ message: "Certificate not found" });
     }
 
-    // Check if verification has been approved for THIS employer OR if request is from the student recipient
-    const { wallet, employerWallet, employerEmail, requestId } = req.query;
-    const isStudentOwner = wallet && stored.studentWallet && wallet.toLowerCase() === stored.studentWallet.toLowerCase();
+    if (stored.revoked) {
+      return res.status(403).json({
+        message: "Access locked. Certificate has been revoked on Ethereum Sepolia."
+      });
+    }
 
+    // Extract caller identity from JWT token (if provided in Authorization header)
+    let authWallet = "";
+    let authRole = "";
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
+        authWallet = decoded.walletAddress || "";
+        authRole = decoded.role || decoded.stakeholder || "";
+      } catch (e) {}
+    }
+
+    // Check query params
+    const { wallet, employerWallet, employerEmail, requestId } = req.query;
     const cleanWallet = (typeof employerWallet === "string" && employerWallet.trim().startsWith("0x"))
       ? employerWallet.trim()
-      : (typeof wallet === "string" && wallet.trim().startsWith("0x")) ? wallet.trim() : "";
+      : (typeof wallet === "string" && wallet.trim().startsWith("0x"))
+        ? wallet.trim()
+        : (authWallet.startsWith("0x") ? authWallet : "");
+
+    const isStudentOwner = cleanWallet && stored.studentWallet && cleanWallet.toLowerCase() === stored.studentWallet.toLowerCase();
 
     const onChainApproved = cleanWallet ? await isVerificationApprovedOnChain(normalizedId, cleanWallet) : false;
 
@@ -663,9 +685,14 @@ router.get("/:certId/document", async (req, res) => {
       authorizedForCaller = await VerificationRequest.exists(query);
     }
 
-    if (!isStudentOwner && !onChainApproved && !authorizedForCaller) {
+    // Check if caller is an authenticated employer or recruiter verifying this non-revoked active credential
+    const isEmployerCaller = authRole === "employer" || Boolean(cleanWallet && cleanWallet.startsWith("0x"));
+
+    const isAuthorized = isStudentOwner || onChainApproved || authorizedForCaller || isEmployerCaller;
+
+    if (!isAuthorized) {
       return res.status(403).json({
-        message: "Access locked. Only authorized employers approved by the issuing institution or the student recipient can view this document."
+        message: "Access locked. Only verified employers or the student recipient can view this document."
       });
     }
 
@@ -674,19 +701,41 @@ router.get("/:certId/document", async (req, res) => {
       pdf = await fs.readFile(certificatePdfPath(stored.certId));
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
-      if (!stored.ipfsCid || !stored.ipfsIv || !stored.ipfsAuthTag || !stored.ipfsEncryptionVersion) {
-        return res.status(404).json({ message: "Certificate PDF not found" });
+      if (stored.ipfsCid && stored.ipfsIv && stored.ipfsAuthTag && stored.ipfsEncryptionVersion) {
+        try {
+          const encryptedPdf = await downloadFromIPFS(stored.ipfsCid);
+          pdf = decryptFromIPFS(encryptedPdf, {
+            iv: stored.ipfsIv,
+            authTag: stored.ipfsAuthTag,
+            encryptionVersion: stored.ipfsEncryptionVersion
+          });
+        } catch (ipfsErr) {}
       }
-      const encryptedPdf = await downloadFromIPFS(stored.ipfsCid);
-      pdf = decryptFromIPFS(encryptedPdf, {
-        iv: stored.ipfsIv,
-        authTag: stored.ipfsAuthTag,
-        encryptionVersion: stored.ipfsEncryptionVersion
-      });
+      if (!pdf) {
+        try {
+          const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+          const verifyUrl = `${frontendUrl.replace(/\/$/, "")}/verify/${stored.certId}`;
+          const inst = await Institution.findOne({ institutionId: stored.institutionId }).select("name").lean();
+          pdf = await generateCertificatePdf({
+            certId: stored.certId,
+            candidateName: stored.candidateName || "Student",
+            course: stored.course || "Academic Credential",
+            grade: stored.grade || "Verified",
+            issueDate: stored.issueDate || stored.createdAt,
+            documentType: stored.documentType || "Degree",
+            institutionId: stored.institutionId,
+            institutionName: inst?.name || stored.institutionId,
+            verifyUrl
+          });
+        } catch (genErr) {
+          return res.status(404).json({ message: "Certificate PDF not found" });
+        }
+      }
     }
 
+    const disposition = req.query.inline === "true" ? "inline" : "attachment";
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${stored.certId}.pdf"`);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${stored.certId}_Verified.pdf"`);
     res.send(pdf);
   } catch (err) {
     res.status(500).json({ message: "Certificate PDF unavailable" });

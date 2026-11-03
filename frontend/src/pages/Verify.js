@@ -75,6 +75,7 @@ export default function Verify() {
 
   // Printable Verification Audit Report Modal
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -417,6 +418,39 @@ export default function Verify() {
       setStatusMessage("Direct EVM query failed: " + err.message);
     } finally {
       setDirectEvmLoading(false);
+    }
+  }
+
+  // Download official verified student certificate PDF
+  async function handleDownloadCertificatePdf(targetId, targetReqId) {
+    const id = (targetId || certId || "").trim().toUpperCase();
+    if (!id) return;
+    setDownloadingPdf(true);
+    try {
+      const params = new URLSearchParams();
+      if (employerWallet) params.append("employerWallet", employerWallet.trim());
+      if (employerEmail) params.append("employerEmail", employerEmail.trim());
+      if (targetReqId || approvedDetails?.requestId) {
+        params.append("requestId", targetReqId || approvedDetails?.requestId);
+      }
+
+      const res = await api.get(`/verify/${encodeURIComponent(id)}/document?${params.toString()}`, {
+        responseType: "blob"
+      });
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${id}_Verified_Certificate.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
+    } catch (err) {
+      alert("Failed to download certificate PDF: " + (err.response?.data?.message || err.message));
+    } finally {
+      setDownloadingPdf(false);
     }
   }
 
@@ -812,6 +846,16 @@ export default function Verify() {
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
                     <button
                       type="button"
+                      className="button button-primary"
+                      onClick={() => handleDownloadCertificatePdf(approvedDetails.certId || certId, approvedDetails.requestId)}
+                      disabled={downloadingPdf}
+                      style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", display: "inline-flex", alignItems: "center", gap: "0.4rem", fontWeight: 700 }}
+                      title="Download the official verified student certificate PDF"
+                    >
+                      {downloadingPdf ? "Downloading..." : "📥 Download Verified PDF"}
+                    </button>
+                    <button
+                      type="button"
                       className="button"
                       onClick={() => setShowAuditModal(true)}
                       style={{ fontSize: "0.85rem", padding: "0.35rem 0.75rem", background: "#0284c7", color: "#fff", fontWeight: 700, borderColor: "#0369a1" }}
@@ -862,6 +906,21 @@ export default function Verify() {
                         <span className="meta-label">Date of Issuance</span>
                         <strong>{new Date(approvedDetails.certificate.issueDate).toLocaleDateString()}</strong>
                       </div>
+                    </div>
+
+                    <div style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px dashed var(--cc-line)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+                      <span className="small muted">
+                        Official academic credential issued by <strong>{approvedDetails.institutionName || approvedDetails.institutionId}</strong>.
+                      </span>
+                      <button
+                        type="button"
+                        className="button button-primary"
+                        onClick={() => handleDownloadCertificatePdf(approvedDetails.certId || certId, approvedDetails.requestId)}
+                        disabled={downloadingPdf}
+                        style={{ fontSize: "0.82rem", padding: "0.35rem 0.8rem", display: "inline-flex", alignItems: "center", gap: "0.35rem", fontWeight: 700 }}
+                      >
+                        {downloadingPdf ? "Downloading..." : "📥 Download Official Certificate (PDF)"}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1086,18 +1145,32 @@ export default function Verify() {
                         <small>{formatDate(req.requestedAt)}</small>
                       </td>
                       <td data-label="Action">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}
-                          onClick={() => {
-                            setCertId(req.certId);
-                            setActiveTab("verify");
-                            checkStatus(req.certId);
-                          }}
-                        >
-                          Inspect
-                        </Button>
+                        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}
+                            onClick={() => {
+                              setCertId(req.certId);
+                              setActiveTab("verify");
+                              checkStatus(req.certId);
+                            }}
+                          >
+                            Inspect
+                          </Button>
+                          {req.status === "approved" && (
+                            <Button
+                              type="button"
+                              variant="primary"
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}
+                              onClick={() => handleDownloadCertificatePdf(req.certId, req.requestId)}
+                              disabled={downloadingPdf}
+                              title="Download verified student certificate PDF"
+                            >
+                              📥 PDF
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

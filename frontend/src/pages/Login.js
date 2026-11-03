@@ -2,17 +2,13 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api";
 import { Alert, Brand, Button, Field, PasswordField } from "../components/UI";
-import { authenticateStakeholderWallet } from "../utils/web3";
-
-const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
+import { authenticateStakeholderWallet, connectMetaMaskWallet } from "../utils/web3";
 
 export default function Login() {
-  const [authMethod, setAuthMethod] = useState("password"); // "password" or "otp"
+  const [authMethod, setAuthMethod] = useState("password"); // "password" or "wallet"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpMessage, setOtpMessage] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
@@ -21,9 +17,6 @@ export default function Login() {
   function switchMethod(method) {
     setAuthMethod(method);
     setError("");
-    setOtpMessage("");
-    setOtpSent(false);
-    setOtp("");
   }
 
   // Password Login
@@ -49,40 +42,31 @@ export default function Login() {
     }
   }
 
-  // Step 1: Send OTP for Login (Strictly verifies record in DB first)
-  async function handleSendLoginOtp(e) {
-    e.preventDefault();
+  // Autofill wallet address from connected MetaMask
+  async function handleAutofillWallet() {
     setError("");
-    setOtpMessage("");
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email.trim())) {
-      return setError("Enter a valid institutional email address.");
-    }
-    setLoading(true);
     try {
-      const res = await api.post("/auth/send-login-otp", { email: email.trim() });
-      setOtpSent(true);
-      setOtpMessage(res.data.message || `OTP sent to ${email.trim()}.`);
-      if (res.data.demoOtp) {
-        setOtp(res.data.demoOtp);
-      }
+      const addr = await connectMetaMaskWallet();
+      setWalletAddress(addr);
     } catch (err) {
-      setOtpSent(false);
-      setError(err.response?.data?.message || "No registered account found with this email.");
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
   }
 
-  // Step 2: Verify Login OTP and sign in
-  async function handleVerifyLoginOtp(e) {
-    e.preventDefault();
+  // Login with Wallet Address (Direct API lookup by registered Ethereum public address)
+  async function handleWalletLogin(e) {
+    if (e && e.preventDefault) e.preventDefault();
     setError("");
-    if (!otp.trim() || !/^\d{6}$/.test(otp.trim())) {
-      return setError("Enter the 6-digit verification code sent to your email.");
+    const cleanWallet = (walletAddress || "").trim();
+    if (!cleanWallet) {
+      return setError("Enter your registered Ethereum wallet address (0x...).");
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(cleanWallet)) {
+      return setError("Invalid Ethereum wallet address format. Address must start with 0x and be 42 characters.");
     }
     setLoading(true);
     try {
-      const res = await api.post("/auth/verify-login-otp", { email: email.trim(), otp: otp.trim() });
+      const res = await api.post("/auth/wallet-login", { walletAddress: cleanWallet });
       localStorage.removeItem("certchain_student");
       localStorage.removeItem("certchain_student_wallet");
       localStorage.removeItem("certchain_employer_wallet");
@@ -92,13 +76,13 @@ export default function Login() {
       localStorage.setItem("certchain_institution", JSON.stringify(res.data.institution));
       navigate(res.data.institution.role === "reviewer" ? "/certificates" : "/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid or expired OTP. Please check and try again.");
+      setError(err.response?.data?.message || "Wallet sign-in failed. Ensure this wallet address is registered with an approved institution.");
     } finally {
       setLoading(false);
     }
   }
 
-  // MetaMask Web3 Login
+  // 1-Click MetaMask Web3 Cryptographic Login
   async function handleMetaMaskLogin() {
     setError("");
     setWalletLoading(true);
@@ -128,32 +112,6 @@ export default function Login() {
           <p>
             Issue and verify academic certificates with a permanent, tamper-evident record anchored to Ethereum Sepolia.
           </p>
-
-          <div
-            style={{
-              marginTop: "2rem",
-              padding: "1rem",
-              background: "rgba(255,255,255,0.08)",
-              borderRadius: "8px",
-              border: "1px solid rgba(255,255,255,0.15)",
-              fontSize: "0.85rem"
-            }}
-          >
-            <strong style={{ color: "#f7f0df", display: "block", marginBottom: "0.5rem" }}>
-              ⛓️ Ethereum Sepolia Network
-            </strong>
-            <div>
-              <span style={{ opacity: 0.7, fontSize: "0.75rem", display: "block" }}>Smart Contract Address:</span>
-              <a
-                href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "#d4b06f", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}
-              >
-                {CONTRACT_ADDRESS} ↗
-              </a>
-            </div>
-          </div>
         </div>
       </aside>
 
@@ -161,67 +119,11 @@ export default function Login() {
         <div className="auth-form-inner">
           <span className="eyebrow">Institution portal</span>
           <h2>Welcome back</h2>
-          <p className="lead">Sign in with your Sepolia wallet, password, or email OTP.</p>
+          <p className="lead">Sign in with your password or registered wallet address.</p>
 
           {error && <Alert>{error}</Alert>}
-          {otpMessage && (
-            <div
-              style={{
-                background: "#064e3b",
-                border: "1px solid #10b981",
-                color: "#d1fae5",
-                padding: "0.75rem 1rem",
-                borderRadius: "8px",
-                marginBottom: "1rem",
-                fontSize: "0.9rem"
-              }}
-            >
-              ✓ {otpMessage}
-            </div>
-          )}
 
-          {/* 1-Click MetaMask Web3 Login */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <button
-              type="button"
-              className="button button-block"
-              onClick={handleMetaMaskLogin}
-              disabled={walletLoading || loading}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                background: "#f97316",
-                color: "#ffffff",
-                border: "none",
-                fontWeight: 600,
-                padding: "0.75rem"
-              }}
-            >
-              🦊 {walletLoading ? "Connecting to Sepolia..." : "Sign In with MetaMask (Sepolia Wallet)"}
-            </button>
-            <p className="muted small" style={{ textAlign: "center", margin: "0.5rem 0 0" }}>
-              1-click sign in for registered institution Web3 wallets
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              margin: "1.5rem 0",
-              color: "var(--cc-muted)",
-              fontSize: "0.85rem"
-            }}
-          >
-            <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--cc-line)" }} />
-            <span>OR SIGN IN WITH EMAIL</span>
-            <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--cc-line)" }} />
-          </div>
-
-          {/* Method Selector Tabs: Password vs Email OTP */}
+          {/* Method Selector Tabs: Password vs Wallet Address */}
           <div
             style={{
               display: "grid",
@@ -251,19 +153,19 @@ export default function Login() {
             </button>
             <button
               type="button"
-              onClick={() => switchMethod("otp")}
+              onClick={() => switchMethod("wallet")}
               style={{
                 padding: "0.5rem",
                 borderRadius: "6px",
                 border: "none",
-                background: authMethod === "otp" ? "var(--cc-blue)" : "transparent",
-                color: authMethod === "otp" ? "#ffffff" : "var(--cc-ink)",
-                fontWeight: authMethod === "otp" ? 600 : 400,
+                background: authMethod === "wallet" ? "var(--cc-blue)" : "transparent",
+                color: authMethod === "wallet" ? "#ffffff" : "var(--cc-ink)",
+                fontWeight: authMethod === "wallet" ? 600 : 400,
                 cursor: "pointer",
                 fontSize: "0.85rem"
               }}
             >
-              Login with OTP
+              Login with Wallet Address
             </button>
           </div>
 
@@ -299,80 +201,77 @@ export default function Login() {
             </form>
           )}
 
-          {/* Option B: Email OTP Login Form */}
-          {authMethod === "otp" && (
+          {/* Option B: Wallet Address Login Form */}
+          {authMethod === "wallet" && (
             <div>
-              {!otpSent ? (
-                <form className="form" onSubmit={handleSendLoginOtp}>
-                  <Field label="Registered Work email">
-                    <input
-                      className="input"
-                      type="email"
-                      placeholder="you@institution.edu"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <p className="muted small" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
-                    We will send a 6-digit one-time code to your email if your institution is registered.
-                  </p>
-                  <Button className="button-block" type="submit" loading={loading}>
-                    {loading ? "Checking records & sending..." : "Send Login OTP"}
-                  </Button>
-                </form>
-              ) : (
-                <form className="form" onSubmit={handleVerifyLoginOtp}>
-                  <Field label={`Enter 6-digit code sent to ${email}`}>
-                    <input
-                      className="input"
-                      type="text"
-                      maxLength={6}
-                      placeholder="123456"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                      style={{
-                        letterSpacing: "0.3em",
-                        fontSize: "1.25rem",
-                        textAlign: "center",
-                        fontWeight: 700
-                      }}
-                      required
-                    />
-                  </Field>
+              {/* 1-Click MetaMask Web3 Login */}
+              <button
+                type="button"
+                className="button button-block"
+                onClick={handleMetaMaskLogin}
+                disabled={walletLoading || loading}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  background: "#f97316",
+                  color: "#ffffff",
+                  border: "none",
+                  fontWeight: 600,
+                  padding: "0.75rem",
+                  marginBottom: "1rem"
+                }}
+              >
+                🦊 {walletLoading ? "Connecting to Sepolia..." : "Sign In with MetaMask (1-Click)"}
+              </button>
 
-                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-                    <Button className="button-block" type="submit" loading={loading}>
-                      {loading ? "Verifying..." : "Verify & Sign In"}
-                    </Button>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  margin: "1rem 0",
+                  color: "var(--cc-muted)",
+                  fontSize: "0.8rem"
+                }}
+              >
+                <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--cc-line)" }} />
+                <span>OR ENTER REGISTERED WALLET</span>
+                <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--cc-line)" }} />
+              </div>
+
+              <form className="form" onSubmit={handleWalletLogin}>
+                <Field label="Registered Ethereum Wallet Address">
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <input
+                      className="input mono"
+                      type="text"
+                      placeholder="0x..."
+                      value={walletAddress}
+                      onChange={(e) => setWalletAddress(e.target.value)}
+                      style={{ fontSize: "0.85rem", flex: 1 }}
+                      required
+                    />
                     <button
                       type="button"
                       className="button button-secondary"
-                      onClick={() => setOtpSent(false)}
-                      style={{ whiteSpace: "nowrap" }}
+                      style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                      onClick={handleAutofillWallet}
+                      disabled={walletLoading}
                     >
-                      Change Email
+                      🦊 Autofill
                     </button>
                   </div>
+                </Field>
+                <p className="muted small" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
+                  Sign in using your institution's registered Sepolia public key (42-character 0x... address).
+                </p>
 
-                  <p className="muted small" style={{ textAlign: "center", marginTop: "0.75rem" }}>
-                    Didn't receive code?{" "}
-                    <button
-                      type="button"
-                      onClick={handleSendLoginOtp}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "var(--cc-accent, #60a5fa)",
-                        cursor: "pointer",
-                        textDecoration: "underline"
-                      }}
-                    >
-                      Resend OTP
-                    </button>
-                  </p>
-                </form>
-              )}
+                <Button className="button-block" type="submit" loading={loading}>
+                  {loading ? "Verifying wallet..." : "Sign In with Wallet Address"}
+                </Button>
+              </form>
             </div>
           )}
 

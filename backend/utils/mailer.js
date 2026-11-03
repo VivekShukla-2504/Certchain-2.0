@@ -1,7 +1,7 @@
 require("dotenv").config();
 const nodemailer = require("nodemailer");
 
-function getMailTransport() {
+function getMailTransport(preferredPort = 587) {
   const user = (process.env.SMTP_USER || "").trim();
   const rawPass = (process.env.SMTP_PASS || "").trim();
   if (!user || !rawPass) {
@@ -10,132 +10,75 @@ function getMailTransport() {
 
   // Remove spaces from Google App Password (e.g. "vydc ubkd dmwq jgea" -> "vydcubkddmwqjgea")
   const cleanPass = rawPass.replace(/\s+/g, "");
-  const host = (process.env.SMTP_HOST || "").toLowerCase().trim();
-  const isGmail = host === "smtp.gmail.com" || user.toLowerCase().endsWith("@gmail.com") || (!host && user.includes("@"));
-
-  if (isGmail) {
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user,
-        pass: cleanPass
-      },
-      family: 4,
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000
-    });
-  }
-
-  const port = Number(process.env.SMTP_PORT || 465);
-  const secure = process.env.SMTP_SECURE === "true" || port === 465;
+  const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase().trim();
+  const port = preferredPort || Number(process.env.SMTP_PORT || 587);
+  const secure = port === 465;
 
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    host,
     port,
     secure,
     auth: {
       user,
       pass: cleanPass
     },
-    family: 4,
-    connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000
-  });
-}
-
-/**
- * Sends email via Resend HTTPS REST API (Port 443).
- * Never blocked by cloud providers like Render Free Tier.
- */
-async function sendViaResend({ to, subject, text, attachments = [] }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return null;
-
-  let fromEmail = process.env.RESEND_FROM || "onboarding@resend.dev";
-  const configuredFrom = (process.env.MAIL_FROM || "").trim();
-  if (configuredFrom && !configuredFrom.includes("@gmail.com") && !configuredFrom.includes("@yahoo.com") && !configuredFrom.includes("@outlook.com")) {
-    fromEmail = configuredFrom;
-  }
-  const formattedFrom = fromEmail.includes("<") ? fromEmail : `CertChain <${fromEmail}>`;
-
-  const payload = {
-    from: formattedFrom,
-    to: Array.isArray(to) ? to : [to],
-    subject,
-    text
-  };
-
-  if (attachments && attachments.length > 0) {
-    payload.attachments = attachments.map((att) => ({
-      filename: att.filename,
-      content: Buffer.isBuffer(att.content) ? att.content.toString("base64") : Buffer.from(att.content).toString("base64")
-    }));
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
+    tls: {
+      rejectUnauthorized: false
     },
-    body: JSON.stringify(payload)
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000
   });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || `Resend error: ${res.status}`);
-  }
-  return { messageId: data.id, provider: "resend" };
 }
 
 /**
  * Unified resilient email sender:
- * 1. Attempts Resend HTTPS API (Port 443) if configured
- * 2. Falls back to Nodemailer SMTP
+ * 1. Dispatches directly via SMTP Port 587 (Standard cloud submission port, works on Render / AWS / GCP)
+ * 2. Falls back to Port 465 (SSL)
+ * Completely eliminates Resend free-tier domain restrictions!
  */
 async function sendEmailMessage({ to, subject, text, attachments = [] }) {
-  const transport = getMailTransport();
+  const user = (process.env.SMTP_USER || "").trim();
+  const rawPass = (process.env.SMTP_PASS || "").trim();
 
-  // 1. If SMTP / Gmail credentials are configured, dispatch directly via SMTP (unrestricted delivery to all domains)
-  if (transport) {
-    try {
-      console.log(`[CertChain Mailer] Dispatching via SMTP to ${to}...`);
-      const info = await transport.sendMail({
-        from: process.env.MAIL_FROM || process.env.SMTP_USER,
-        to,
-        subject,
-        text,
-        attachments: attachments ? attachments.map((att) => ({
-          filename: att.filename,
-          content: att.content,
-          contentType: att.contentType || "application/octet-stream"
-        })) : []
-      });
-      console.log(`[CertChain Mailer] Delivered via SMTP to ${to} (MessageId: ${info.messageId})`);
-      return info;
-    } catch (smtpErr) {
-      console.warn(`[CertChain Mailer] SMTP delivery failed to ${to} (${smtpErr.message}), trying Resend fallback...`);
-    }
-  }
-
-  // 2. Fallback to Resend HTTPS API if configured (works in cloud environments like Render)
-  if (process.env.RESEND_API_KEY) {
-    try {
-      console.log(`[CertChain Mailer] Dispatching via Resend HTTPS to ${to}...`);
-      const result = await sendViaResend({ to, subject, text, attachments });
-      console.log(`[CertChain Mailer] Delivered via Resend to ${to} (ID: ${result.messageId})`);
-      return result;
-    } catch (resendErr) {
-      console.error(`[CertChain Mailer] Resend HTTPS failed to ${to}: ${resendErr.message}`);
-      throw resendErr;
-    }
-  }
-
-  if (!transport) {
+  if (!user || !rawPass) {
     console.warn(`[CertChain Mailer] No email credentials configured. Simulated email to: ${to}`);
     return null;
+  }
+
+  const mailOptions = {
+    from: process.env.MAIL_FROM || user,
+    to,
+    subject,
+    text,
+    attachments: attachments ? attachments.map((att) => ({
+      filename: att.filename,
+      content: att.content,
+      contentType: att.contentType || "application/octet-stream"
+    })) : []
+  };
+
+  // 1. Try Port 587 first (Standard cloud submission port with STARTTLS)
+  try {
+    console.log(`[CertChain Mailer] Dispatching email to ${to} via SMTP (Port 587)...`);
+    const transport587 = getMailTransport(587);
+    const info = await transport587.sendMail(mailOptions);
+    console.log(`[CertChain Mailer] Delivered via SMTP Port 587 to ${to} (MessageId: ${info.messageId})`);
+    return info;
+  } catch (err587) {
+    console.warn(`[CertChain Mailer] Port 587 attempt failed (${err587.message}), trying Port 465...`);
+  }
+
+  // 2. Fallback to Port 465 (Direct SSL)
+  try {
+    console.log(`[CertChain Mailer] Dispatching email to ${to} via SMTP (Port 465)...`);
+    const transport465 = getMailTransport(465);
+    const info = await transport465.sendMail(mailOptions);
+    console.log(`[CertChain Mailer] Delivered via SMTP Port 465 to ${to} (MessageId: ${info.messageId})`);
+    return info;
+  } catch (err465) {
+    console.error(`[CertChain Mailer] All SMTP delivery attempts failed to ${to}: ${err465.message}`);
+    throw err465;
   }
 }
 

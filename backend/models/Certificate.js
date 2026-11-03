@@ -8,13 +8,14 @@ const certificateSchema = new mongoose.Schema(
     course: { type: String, required: true },
     grade: { type: String, required: true },
     issueDate: { type: Date, required: true },
-    documentType: { type: String, enum: ["Degree", "Marksheet", "Transcript", "Diploma", "Other"] },
+    documentType: { type: String, enum: ["Degree", "Marksheet", "Transcript", "Diploma", "Migration", "Character", "NOC", "Provisional", "Other"], default: "Degree" },
     institutionId: { type: String, required: true },
     issuerWallet: { type: String, required: true },
     studentWallet: { type: String }, // Student's public key / Ethereum address
     studentEmail: { type: String },  // Student's email for automated certificate dispatch
     department: { type: String },
     academicSession: { type: String },
+    certificateData: { type: mongoose.Schema.Types.Mixed }, // Structured type-specific academic attributes
     certHash: { type: String, required: true }, // SHA-256 hex digest
     documentHash: { type: String }, // SHA-256 hash of the uploaded PDF
     generatedPdf: { type: Boolean, default: false },

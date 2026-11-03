@@ -115,11 +115,52 @@ export default function Dashboard() {
     course: "",
     department: "",
     academicSession: "2022-2026",
-    grade: "A / 8.5 CGPA",
+    grade: "First Class with Distinction",
     issueDate: new Date().toISOString().split("T")[0],
-    documentType: "Degree",
+    documentType: "Marksheet",
     studentWallet: "",
     studentEmail: ""
+  });
+  const [certTypeData, setCertTypeData] = useState({
+    // Marksheet specific
+    semester: "Semester VI (Final Year)",
+    examinationSession: "May - June 2026",
+    cgpa: "9.32 / 10.0",
+    resultClassification: "First Class with Distinction",
+    subjects: [
+      { code: "CS-601", name: "Distributed Systems & Cloud Architecture", max: 100, marks: 95, grade: "O" },
+      { code: "CS-602", name: "Blockchain Architecture & Smart Contracts", max: 100, marks: 98, grade: "O" },
+      { code: "CS-603", name: "Cryptography & Cybersecurity Protocols", max: 100, marks: 91, grade: "A+" },
+      { code: "CS-604", name: "Artificial Intelligence & Neural Networks", max: 100, marks: 93, grade: "A+" },
+      { code: "CS-605", name: "Capstone Major Technical Project", max: 100, marks: 97, grade: "O" }
+    ],
+    // Migration specific
+    migrationRef: "MIG/2026/8941",
+    migratingTo: "Indian Institute of Science (IISc), Bangalore",
+    reason: "Admission to Post-Graduate Master of Technology Program",
+    duesStatus: "All library, hostel, laboratory, and tuition dues fully cleared",
+    // Character specific
+    characterRef: "CC/2026/4102",
+    periodFrom: "August 2022",
+    periodTo: "June 2026",
+    conduct: "Exemplary and Commendable",
+    disciplinaryRecord: "Clean — No disciplinary action or misconduct ever recorded",
+    extracurricular: "Lead Coordinator of Technical Innovation Cell, Active Member of NSS",
+    purpose: "Higher Academic Admissions & Professional Employment Verification",
+    // NOC specific
+    nocRef: "NOC/2026/1105",
+    addressedTo: "Google India Private Limited / Microsoft IDC",
+    purposeOfNoc: "Full-Time Summer Technical Internship (Software Engineering)",
+    duration: "June 1, 2026 to August 31, 2026 (Summer Break)",
+    remarks: "The institution has no objection to the student undertaking this engagement without detriment to academic schedules.",
+    // Degree specific
+    specialization: "Artificial Intelligence & Distributed Systems",
+    convocationYear: "2026",
+    division: "First Class with Honors & Distinction",
+    // Provisional specific
+    provisionalRef: "PROV/2026/6219",
+    examMonthYear: "June 2026",
+    validityClause: "Valid until the original degree is formally conferred at the upcoming annual convocation ceremony."
   });
   const [certificateFile, setCertificateFile] = useState(null);
   const [computedFileHash, setComputedFileHash] = useState("");
@@ -330,10 +371,6 @@ export default function Dashboard() {
     setIssuanceError("");
     setIssuedResult(null);
 
-    if (!certificateFile) {
-      setIssuanceError("Please upload the original certificate PDF document.");
-      return;
-    }
     if (!issueForm.candidateName.trim() || !issueForm.rollNumber.trim() || !issueForm.course.trim()) {
       setIssuanceError("Candidate Name, Enrollment Number, and Course are required.");
       return;
@@ -345,16 +382,19 @@ export default function Dashboard() {
       payload.append("candidateName", issueForm.candidateName.trim());
       payload.append("rollNumber", issueForm.rollNumber.trim());
       payload.append("course", issueForm.course.trim());
-      payload.append("department", issueForm.department.trim());
-      payload.append("academicSession", issueForm.academicSession.trim());
-      payload.append("grade", issueForm.grade.trim());
-      payload.append("issueDate", issueForm.issueDate);
-      payload.append("documentType", issueForm.documentType);
-      payload.append("studentWallet", issueForm.studentWallet.trim() || walletAddress);
-      payload.append("studentEmail", issueForm.studentEmail.trim());
-      payload.append("document", certificateFile);
-      if (selectedStudent?.id) {
-        payload.append("studentId", selectedStudent.id);
+      payload.append("department", (issueForm.department || "").trim());
+      payload.append("academicSession", (issueForm.academicSession || "").trim());
+      payload.append("grade", (issueForm.grade || "").trim() || (issueForm.documentType === "Marksheet" ? certTypeData.cgpa : "Passed with Distinction"));
+      payload.append("issueDate", issueForm.issueDate || new Date().toISOString().split("T")[0]);
+      payload.append("documentType", issueForm.documentType || "Marksheet");
+      payload.append("studentWallet", (issueForm.studentWallet || "").trim() || walletAddress);
+      payload.append("studentEmail", (issueForm.studentEmail || "").trim());
+      payload.append("certificateData", JSON.stringify(certTypeData));
+      if (certificateFile) {
+        payload.append("document", certificateFile);
+      }
+      if (selectedStudent?.id || selectedStudent?._id) {
+        payload.append("studentId", selectedStudent.id || selectedStudent._id);
       }
 
       setIssuingState("broadcasting");
@@ -880,13 +920,17 @@ export default function Dashboard() {
               <span style={{ fontSize: "2.5rem" }}>🎉</span>
               <h3 style={{ margin: "0.5rem 0" }}>Certificate Successfully Confirmed on Ethereum Sepolia!</h3>
               <p className="muted small" style={{ maxWidth: 550, margin: "0 auto 1.5rem" }}>
-                The SHA-256 hash was permanently anchored to smart contract <code>{CONTRACT_ADDRESS.slice(0, 10)}...</code>. An automated notification email with the Certificate ID and PDF attachment has been dispatched to <strong>{issuedResult.studentEmail || "student"}</strong>.
+                The SHA-256 hash was permanently anchored to smart contract <code>{CONTRACT_ADDRESS.slice(0, 10)}...</code>. An automated notification email with the Certificate ID and official PDF attachment has been dispatched to <strong>{issuedResult.studentEmail || "student"}</strong>.
               </p>
 
-              <div style={{ display: "inline-flex", flexDirection: "column", gap: "0.5rem", background: "var(--cc-paper)", padding: "1rem 1.5rem", borderRadius: 8, border: "1px solid var(--cc-line)", textAlign: "left", marginBottom: "1.5rem" }}>
+              <div style={{ display: "inline-flex", flexDirection: "column", gap: "0.5rem", background: "var(--cc-paper)", padding: "1rem 1.5rem", borderRadius: 8, border: "1px solid var(--cc-line)", textAlign: "left", marginBottom: "1.5rem", width: "100%", maxWidth: 500 }}>
                 <div>
                   <span className="muted small">Certificate ID:</span>{" "}
                   <strong style={{ fontFamily: "monospace", color: "#2563eb" }}>{issuedResult.certId}</strong>
+                </div>
+                <div>
+                  <span className="muted small">Document Type:</span>{" "}
+                  <span className="badge badge-primary">{issuedResult.documentType || issueForm.documentType}</span>
                 </div>
                 <div>
                   <span className="muted small">Candidate:</span> <strong>{issuedResult.candidateName}</strong> ({issuedResult.rollNumber})
@@ -904,39 +948,32 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-                <Button onClick={() => { setIssuedResult(null); setCertificateFile(null); setComputedFileHash(""); }}>
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+                <a
+                  href={`/api/certificates/${issuedResult.certId}/download-student`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="button button-primary"
+                  style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  📥 Download Generated PDF
+                </a>
+                <a
+                  href={`/verify/${issuedResult.certId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="button button-secondary"
+                  style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  🔍 Open Verification Portal
+                </a>
+                <Button variant="secondary" onClick={() => { setIssuedResult(null); setCertificateFile(null); }}>
                   Issue Another Certificate
-                </Button>
-                <Button variant="secondary" onClick={() => setActiveTab("credentials")}>
-                  View All Issued Credentials
                 </Button>
               </div>
             </div>
           ) : (
             <form onSubmit={handleIssueCertificate}>
-              <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  style={{ fontSize: "0.85rem", background: "#fdf4ff", border: "1px solid #f0abfc", color: "#a21caf", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
-                  onClick={() => {
-                    setIssueForm({
-                      candidateName: "Vivek Shukla",
-                      rollNumber: "2026-CSE-001",
-                      course: "Bachelor of Technology (Computer Science)",
-                      department: "Computer Science & Engineering",
-                      academicSession: "2022-2026",
-                      grade: "9.8 CGPA (First Class with Distinction)",
-                      issueDate: new Date().toISOString().split("T")[0],
-                      documentType: "Degree",
-                      studentWallet: "0x8A8edFB602AA8D7479160bC42815B6271d4B70B3",
-                      studentEmail: "student@certchain.edu"
-                    });
-                  }}
-                >
-                  ✨ Quick Autofill Presentation Demo Candidate
-                </button>
-              </div>
               {/* Step 1: Student Selection */}
               <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--cc-cloud)", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
@@ -944,36 +981,36 @@ export default function Dashboard() {
                   {selectedStudent && (
                     <button
                       type="button"
-                      style={{ fontSize: "0.8rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer" }}
+                      style={{ fontSize: "0.8rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
                       onClick={() => setSelectedStudent(null)}
                     >
-                      Clear Selection
+                      ✕ Clear Selection
                     </button>
                   )}
                 </div>
 
                 {selectedStudent ? (
-                  <div style={{ background: "rgba(37, 99, 235, 0.08)", padding: "0.75rem", borderRadius: 6, border: "1px solid rgba(37, 99, 235, 0.2)" }}>
+                  <div style={{ background: "rgba(37, 99, 235, 0.08)", padding: "0.75rem 1rem", borderRadius: 6, border: "1px solid rgba(37, 99, 235, 0.2)" }}>
                     <div style={{ fontWeight: 600, color: "#1e40af" }}>✓ Selected: {selectedStudent.fullName} ({selectedStudent.enrollmentNumber})</div>
-                    <div style={{ fontSize: "0.85rem", color: "#3b82f6" }}>
-                      Course: {selectedStudent.course} · Wallet: {selectedStudent.walletAddress.slice(0, 12)}... · Email: {selectedStudent.email}
+                    <div style={{ fontSize: "0.85rem", color: "#3b82f6", marginTop: 2 }}>
+                      Course: {selectedStudent.course} · Wallet: {selectedStudent.walletAddress ? `${selectedStudent.walletAddress.slice(0, 10)}...` : "Auto-generated"} · Email: {selectedStudent.email}
                     </div>
                   </div>
                 ) : (
                   <div>
                     <label className="muted small" style={{ display: "block", marginBottom: "0.35rem" }}>
-                      Choose from registered students or enter details manually:
+                      Choose from registered students to automatically populate student records:
                     </label>
                     <select
                       className="select"
-                      style={{ width: "100%", marginBottom: "0.75rem" }}
+                      style={{ width: "100%", marginBottom: "0.5rem" }}
                       onChange={(e) => {
                         const s = students.find((item) => (item.id || item._id) === e.target.value);
                         if (s) handleSelectStudentForIssuance(s);
                       }}
                       defaultValue=""
                     >
-                      <option value="" disabled>-- Select a registered student --</option>
+                      <option value="" disabled>-- Select a registered student to autofill --</option>
                       {students.map((s) => (
                         <option key={s.id || s._id} value={s.id || s._id}>
                           {s.fullName} - {s.enrollmentNumber} ({s.course})
@@ -984,131 +1021,501 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Step 2: Certificate Metadata */}
-              <div className="form-grid-2" style={{ marginBottom: "1.5rem" }}>
-                <Field label="Candidate Full Name *">
-                  <input
-                    className="input"
-                    value={issueForm.candidateName}
-                    onChange={(e) => setIssueForm({ ...issueForm, candidateName: e.target.value })}
-                    required
-                  />
-                </Field>
-
-                <Field label="Roll / Enrollment Number *">
-                  <input
-                    className="input"
-                    value={issueForm.rollNumber}
-                    onChange={(e) => setIssueForm({ ...issueForm, rollNumber: e.target.value })}
-                    required
-                  />
-                </Field>
-
-                <Field label="Course / Qualification *">
-                  <input
-                    className="input"
-                    value={issueForm.course}
-                    onChange={(e) => setIssueForm({ ...issueForm, course: e.target.value })}
-                    required
-                  />
-                </Field>
-
-                <Field label="Grade / CGPA *">
-                  <input
-                    className="input"
-                    value={issueForm.grade}
-                    onChange={(e) => setIssueForm({ ...issueForm, grade: e.target.value })}
-                    required
-                  />
-                </Field>
-
-                <Field label="Issue Date *">
-                  <input
-                    type="date"
-                    className="input"
-                    value={issueForm.issueDate}
-                    onChange={(e) => setIssueForm({ ...issueForm, issueDate: e.target.value })}
-                    required
-                  />
-                </Field>
-
-                <Field label="Document Type *">
-                  <select
-                    className="select"
-                    value={issueForm.documentType}
-                    onChange={(e) => setIssueForm({ ...issueForm, documentType: e.target.value })}
-                  >
-                    <option value="Degree">Degree</option>
-                    <option value="Marksheet">Marksheet</option>
-                    <option value="Transcript">Transcript</option>
-                    <option value="Diploma">Diploma</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </Field>
-
-                <Field label="Student Wallet Address (Recipient Public Key) *">
-                  <input
-                    className="input mono"
-                    placeholder="0x..."
-                    value={issueForm.studentWallet}
-                    onChange={(e) => setIssueForm({ ...issueForm, studentWallet: e.target.value })}
-                    required
-                  />
-                </Field>
-
-                <Field label="Student Email (Auto-dispatch notification)">
-                  <input
-                    type="email"
-                    className="input"
-                    placeholder="student@example.edu"
-                    value={issueForm.studentEmail}
-                    onChange={(e) => setIssueForm({ ...issueForm, studentEmail: e.target.value })}
-                  />
-                </Field>
-              </div>
-
-              {/* Step 3: PDF Upload & Cryptographic Hashing */}
-              <div style={{ marginBottom: "1.5rem", padding: "1.25rem", background: "var(--cc-cloud)", borderRadius: 8, border: "2px dashed var(--cc-line-strong)", textAlign: "center" }}>
-                <h4 style={{ margin: "0 0 0.5rem" }}>Step 2 & 3: Upload Certificate PDF & Generate SHA-256 Hash</h4>
-                <p className="muted small" style={{ margin: "0 0 1rem" }}>
-                  Select the official certificate PDF. The system computes its cryptographic SHA-256 fingerprint.
+              {/* Step 2: Certificate Type Selector (6 Standard Prototypes) */}
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h4 style={{ margin: "0 0 0.5rem" }}>Step 2: Select Certificate Type</h4>
+                <p className="muted small" style={{ margin: "0 0 0.75rem" }}>
+                  Select the institutional credential format. CertChain automatically renders the official PDF with institutional seal and verification QR code.
                 </p>
 
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => handlePdfSelect(e.target.files[0])}
-                  style={{ marginBottom: "0.75rem" }}
-                />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem" }}>
+                  {[
+                    { id: "Marksheet", label: "Marksheet / Transcript", icon: "📊", desc: "Course grades, credit breakdown, and CGPA" },
+                    { id: "Migration", label: "Migration Certificate", icon: "✈️", desc: "Formal migration & dues clearance for other universities" },
+                    { id: "Character", label: "Character Certificate", icon: "🎖️", desc: "Certified moral conduct, discipline & extracurricular record" },
+                    { id: "NOC", label: "No Objection Certificate (NOC)", icon: "📄", desc: "Institutional clearance for internships, jobs & higher studies" },
+                    { id: "Degree", label: "Degree Certificate", icon: "📜", desc: "Formal graduation degree conferment & academic honors" },
+                    { id: "Provisional", label: "Provisional Certificate", icon: "🎓", desc: "Pre-convocation degree completion credential" }
+                  ].map((t) => {
+                    const isSelected = issueForm.documentType === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setIssueForm({ ...issueForm, documentType: t.id })}
+                        style={{
+                          textAlign: "left",
+                          padding: "0.85rem",
+                          borderRadius: 8,
+                          border: isSelected ? "2px solid #2563eb" : "1px solid var(--cc-line)",
+                          background: isSelected ? "rgba(37, 99, 235, 0.08)" : "var(--cc-paper)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                          <span style={{ fontSize: "1.25rem" }}>{t.icon}</span>
+                          <strong style={{ fontSize: "0.9rem", color: isSelected ? "#1d4ed8" : "inherit" }}>{t.label}</strong>
+                        </div>
+                        <p className="muted" style={{ fontSize: "0.75rem", margin: 0, lineHeight: 1.4 }}>
+                          {t.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                {computedFileHash && (
-                  <div style={{ marginTop: "1rem", textAlign: "left", background: "#fff", padding: "0.85rem", borderRadius: 6, border: "1px solid #e2e8f0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#166534", textTransform: "uppercase" }}>
-                        ✓ Cryptographic SHA-256 Hash (Exact File Integrity)
-                      </span>
-                      <span className="crypto-badge">256-bit Hex</span>
+              {/* Step 3: Core Academic Metadata */}
+              <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--cc-cloud)", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+                <h4 style={{ margin: "0 0 0.75rem" }}>Step 3: Student & Credential Details</h4>
+                <div className="form-grid-2">
+                  <Field label="Candidate Full Name *">
+                    <input
+                      className="input"
+                      placeholder="e.g. Vivek Shukla"
+                      value={issueForm.candidateName}
+                      onChange={(e) => setIssueForm({ ...issueForm, candidateName: e.target.value })}
+                      required
+                    />
+                  </Field>
+
+                  <Field label="Roll / Enrollment Number *">
+                    <input
+                      className="input"
+                      placeholder="e.g. 2026-CSE-001"
+                      value={issueForm.rollNumber}
+                      onChange={(e) => setIssueForm({ ...issueForm, rollNumber: e.target.value })}
+                      required
+                    />
+                  </Field>
+
+                  <Field label="Course / Qualification *">
+                    <input
+                      className="input"
+                      placeholder="e.g. Bachelor of Technology in Computer Science"
+                      value={issueForm.course}
+                      onChange={(e) => setIssueForm({ ...issueForm, course: e.target.value })}
+                      required
+                    />
+                  </Field>
+
+                  <Field label="Department / Faculty">
+                    <input
+                      className="input"
+                      placeholder="e.g. School of Computer & Systems Sciences"
+                      value={issueForm.department}
+                      onChange={(e) => setIssueForm({ ...issueForm, department: e.target.value })}
+                    />
+                  </Field>
+
+                  <Field label="Issue Date *">
+                    <input
+                      type="date"
+                      className="input"
+                      value={issueForm.issueDate}
+                      onChange={(e) => setIssueForm({ ...issueForm, issueDate: e.target.value })}
+                      required
+                    />
+                  </Field>
+
+                  <Field label="Student Email (Auto-dispatch notification)">
+                    <input
+                      type="email"
+                      className="input"
+                      placeholder="student@university.edu"
+                      value={issueForm.studentEmail}
+                      onChange={(e) => setIssueForm({ ...issueForm, studentEmail: e.target.value })}
+                    />
+                  </Field>
+
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <Field label="Student Sepolia Public Key (Recipient Wallet)">
+                      <input
+                        className="input mono"
+                        placeholder="0x... (Recipient wallet address on Sepolia)"
+                        value={issueForm.studentWallet}
+                        onChange={(e) => setIssueForm({ ...issueForm, studentWallet: e.target.value })}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 4: Type-Specific Dynamic Fields */}
+              <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--cc-paper)", borderRadius: 8, border: "1px solid var(--cc-line)" }}>
+                <h4 style={{ margin: "0 0 0.75rem", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>📋 Specific Details for {issueForm.documentType}</span>
+                </h4>
+
+                {/* 1. Marksheet Dynamic Fields */}
+                {issueForm.documentType === "Marksheet" && (
+                  <div>
+                    <div className="form-grid-2" style={{ marginBottom: "1rem" }}>
+                      <Field label="Semester / Term">
+                        <input
+                          className="input"
+                          value={certTypeData.semester}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, semester: e.target.value })}
+                          placeholder="e.g. Semester VI (Final Year)"
+                        />
+                      </Field>
+                      <Field label="Examination Session">
+                        <input
+                          className="input"
+                          value={certTypeData.examinationSession}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, examinationSession: e.target.value })}
+                          placeholder="e.g. May - June 2026"
+                        />
+                      </Field>
+                      <Field label="Cumulative CGPA / SGPA">
+                        <input
+                          className="input"
+                          value={certTypeData.cgpa}
+                          onChange={(e) => {
+                            setCertTypeData({ ...certTypeData, cgpa: e.target.value });
+                            setIssueForm({ ...issueForm, grade: e.target.value });
+                          }}
+                          placeholder="e.g. 9.32 / 10.0"
+                        />
+                      </Field>
+                      <Field label="Result Status / Classification">
+                        <input
+                          className="input"
+                          value={certTypeData.resultClassification}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, resultClassification: e.target.value })}
+                          placeholder="e.g. Passed with Distinction"
+                        />
+                      </Field>
                     </div>
-                    <div style={{ fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all", color: "#0f172a" }}>
-                      {computedFileHash}
+
+                    <label className="muted small" style={{ fontWeight: 600, display: "block", marginBottom: "0.5rem" }}>
+                      Subjects & Marks Breakdown (Included in official PDF grade table):
+                    </label>
+                    <div style={{ overflowX: "auto", border: "1px solid var(--cc-line)", borderRadius: 6 }}>
+                      <table style={{ width: "100%", fontSize: "0.85rem", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ background: "var(--cc-cloud)", borderBottom: "1px solid var(--cc-line)", textAlign: "left" }}>
+                            <th style={{ padding: "6px 10px" }}>Code</th>
+                            <th style={{ padding: "6px 10px" }}>Subject Name</th>
+                            <th style={{ padding: "6px 10px", width: 70 }}>Max</th>
+                            <th style={{ padding: "6px 10px", width: 80 }}>Marks</th>
+                            <th style={{ padding: "6px 10px", width: 70 }}>Grade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {certTypeData.subjects.map((sub, idx) => (
+                            <tr key={idx} style={{ borderBottom: "1px solid var(--cc-line)" }}>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input
+                                  className="input mono"
+                                  style={{ padding: "4px 6px", fontSize: "0.8rem" }}
+                                  value={sub.code}
+                                  onChange={(e) => {
+                                    const next = [...certTypeData.subjects];
+                                    next[idx].code = e.target.value;
+                                    setCertTypeData({ ...certTypeData, subjects: next });
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input
+                                  className="input"
+                                  style={{ padding: "4px 6px", fontSize: "0.8rem" }}
+                                  value={sub.name}
+                                  onChange={(e) => {
+                                    const next = [...certTypeData.subjects];
+                                    next[idx].name = e.target.value;
+                                    setCertTypeData({ ...certTypeData, subjects: next });
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input
+                                  className="input"
+                                  style={{ padding: "4px 6px", fontSize: "0.8rem", textAlign: "center" }}
+                                  value={sub.max}
+                                  onChange={(e) => {
+                                    const next = [...certTypeData.subjects];
+                                    next[idx].max = e.target.value;
+                                    setCertTypeData({ ...certTypeData, subjects: next });
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input
+                                  className="input"
+                                  style={{ padding: "4px 6px", fontSize: "0.8rem", textAlign: "center" }}
+                                  value={sub.marks}
+                                  onChange={(e) => {
+                                    const next = [...certTypeData.subjects];
+                                    next[idx].marks = e.target.value;
+                                    setCertTypeData({ ...certTypeData, subjects: next });
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input
+                                  className="input"
+                                  style={{ padding: "4px 6px", fontSize: "0.8rem", textAlign: "center" }}
+                                  value={sub.grade}
+                                  onChange={(e) => {
+                                    const next = [...certTypeData.subjects];
+                                    next[idx].grade = e.target.value;
+                                    setCertTypeData({ ...certTypeData, subjects: next });
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Migration Dynamic Fields */}
+                {issueForm.documentType === "Migration" && (
+                  <div className="form-grid-2">
+                    <Field label="Migration Certificate Ref No">
+                      <input
+                        className="input"
+                        value={certTypeData.migrationRef}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, migrationRef: e.target.value })}
+                        placeholder="e.g. MIG/2026/8941"
+                      />
+                    </Field>
+                    <Field label="Destination University / Board">
+                      <input
+                        className="input"
+                        value={certTypeData.migratingTo}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, migratingTo: e.target.value })}
+                        placeholder="e.g. Indian Institute of Science (IISc), Bangalore"
+                      />
+                    </Field>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Reason for Migration">
+                        <input
+                          className="input"
+                          value={certTypeData.reason}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, reason: e.target.value })}
+                          placeholder="e.g. Admission to Master of Technology in Artificial Intelligence"
+                        />
+                      </Field>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Dues Clearance Status">
+                        <input
+                          className="input"
+                          value={certTypeData.duesStatus}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, duesStatus: e.target.value })}
+                          placeholder="e.g. All library, hostel, laboratory, and tuition dues fully cleared"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Character Certificate Dynamic Fields */}
+                {issueForm.documentType === "Character" && (
+                  <div className="form-grid-2">
+                    <Field label="Certificate Serial No">
+                      <input
+                        className="input"
+                        value={certTypeData.characterRef}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, characterRef: e.target.value })}
+                        placeholder="e.g. CC/2026/4102"
+                      />
+                    </Field>
+                    <Field label="Moral Character & Conduct Rating">
+                      <input
+                        className="input"
+                        value={certTypeData.conduct}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, conduct: e.target.value })}
+                        placeholder="e.g. Exemplary and Commendable"
+                      />
+                    </Field>
+                    <Field label="Period of Study (From)">
+                      <input
+                        className="input"
+                        value={certTypeData.periodFrom}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, periodFrom: e.target.value })}
+                        placeholder="e.g. August 2022"
+                      />
+                    </Field>
+                    <Field label="Period of Study (To)">
+                      <input
+                        className="input"
+                        value={certTypeData.periodTo}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, periodTo: e.target.value })}
+                        placeholder="e.g. June 2026"
+                      />
+                    </Field>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Disciplinary Record Statement">
+                        <input
+                          className="input"
+                          value={certTypeData.disciplinaryRecord}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, disciplinaryRecord: e.target.value })}
+                          placeholder="e.g. Clean — No disciplinary action or misconduct ever recorded"
+                        />
+                      </Field>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Extracurricular Merits / Contributions">
+                        <input
+                          className="input"
+                          value={certTypeData.extracurricular}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, extracurricular: e.target.value })}
+                          placeholder="e.g. Lead Coordinator of Technical Innovation Cell, Active Member of NSS"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. NOC Dynamic Fields */}
+                {issueForm.documentType === "NOC" && (
+                  <div className="form-grid-2">
+                    <Field label="NOC Reference No">
+                      <input
+                        className="input"
+                        value={certTypeData.nocRef}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, nocRef: e.target.value })}
+                        placeholder="e.g. NOC/2026/1105"
+                      />
+                    </Field>
+                    <Field label="Effective Duration / Period">
+                      <input
+                        className="input"
+                        value={certTypeData.duration}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, duration: e.target.value })}
+                        placeholder="e.g. June 1, 2026 to August 31, 2026 (Summer Break)"
+                      />
+                    </Field>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Addressed To / Recipient Organization">
+                        <input
+                          className="input"
+                          value={certTypeData.addressedTo}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, addressedTo: e.target.value })}
+                          placeholder="e.g. Google India Private Limited / Microsoft IDC"
+                        />
+                      </Field>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Purpose of NOC">
+                        <input
+                          className="input"
+                          value={certTypeData.purposeOfNoc}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, purposeOfNoc: e.target.value })}
+                          placeholder="e.g. Full-Time Summer Technical Internship (Software Engineering)"
+                        />
+                      </Field>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Institutional Remarks & Clearance Terms">
+                        <textarea
+                          className="input"
+                          rows={2}
+                          value={certTypeData.remarks}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, remarks: e.target.value })}
+                          placeholder="Institutional clearance terms..."
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Degree Dynamic Fields */}
+                {issueForm.documentType === "Degree" && (
+                  <div className="form-grid-2">
+                    <Field label="Academic Specialization / Honors">
+                      <input
+                        className="input"
+                        value={certTypeData.specialization}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, specialization: e.target.value })}
+                        placeholder="e.g. Artificial Intelligence & Distributed Systems"
+                      />
+                    </Field>
+                    <Field label="Convocation Year">
+                      <input
+                        className="input"
+                        value={certTypeData.convocationYear}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, convocationYear: e.target.value })}
+                        placeholder="e.g. 2026"
+                      />
+                    </Field>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Division / Classification">
+                        <input
+                          className="input"
+                          value={certTypeData.division}
+                          onChange={(e) => {
+                            setCertTypeData({ ...certTypeData, division: e.target.value });
+                            setIssueForm({ ...issueForm, grade: e.target.value });
+                          }}
+                          placeholder="e.g. First Class with Honors & Distinction"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Provisional Dynamic Fields */}
+                {issueForm.documentType === "Provisional" && (
+                  <div className="form-grid-2">
+                    <Field label="Provisional Certificate Ref No">
+                      <input
+                        className="input"
+                        value={certTypeData.provisionalRef}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, provisionalRef: e.target.value })}
+                        placeholder="e.g. PROV/2026/6219"
+                      />
+                    </Field>
+                    <Field label="Examination Month & Year">
+                      <input
+                        className="input"
+                        value={certTypeData.examMonthYear}
+                        onChange={(e) => setCertTypeData({ ...certTypeData, examMonthYear: e.target.value })}
+                        placeholder="e.g. June 2026"
+                      />
+                    </Field>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Field label="Provisional Validity Clause">
+                        <input
+                          className="input"
+                          value={certTypeData.validityClause}
+                          onChange={(e) => setCertTypeData({ ...certTypeData, validityClause: e.target.value })}
+                          placeholder="e.g. Valid until the original degree is formally conferred at the upcoming annual convocation ceremony."
+                        />
+                      </Field>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Step 4: Blockchain Transaction Execution */}
+              {/* Step 5: Direct One-Click On-Chain Issuance */}
               <div style={{ marginTop: "1.5rem" }}>
+                <div style={{ background: "rgba(37, 99, 235, 0.05)", border: "1px solid rgba(37, 99, 235, 0.2)", borderRadius: 8, padding: "0.85rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>⚡</span>
+                  <div style={{ fontSize: "0.85rem", color: "#1e40af" }}>
+                    <strong>Automated Official PDF & Smart Contract Generation:</strong>
+                    <div>No file upload needed. CertChain will compile the official high-resolution PDF with institutional stamp, Dean / Registrar signatures, compute the SHA-256 fingerprint, anchor it permanently to Sepolia smart contract, and email the PDF directly to the student!</div>
+                  </div>
+                </div>
+
                 <Button
                   type="submit"
-                  disabled={issuingState === "broadcasting" || issuingState === "preparing" || !computedFileHash}
+                  disabled={issuingState === "broadcasting" || issuingState === "preparing"}
                   loading={issuingState === "broadcasting" || issuingState === "preparing"}
-                  style={{ width: "100%", padding: "0.75rem" }}
+                  style={{ width: "100%", padding: "0.85rem", fontSize: "1rem", fontWeight: 700 }}
                 >
                   {issuingState === "broadcasting"
                     ? "Submitting & Anchoring to Sepolia Testnet..."
                     : issuingState === "preparing"
-                    ? "Validating Document Integrity..."
-                    : "🔒 Sign & Issue Certificate on Ethereum Sepolia"}
+                    ? "Compiling Official PDF & Computing SHA-256..."
+                    : `🔒 Sign & Issue ${issueForm.documentType} Certificate on Ethereum Sepolia`}
                 </Button>
                 <span className="muted small" style={{ display: "block", textAlign: "center", marginTop: "0.5rem" }}>
                   Permanently commits SHA-256 hash to Sepolia smart contract. Automatically notifies the student via email upon block confirmation.

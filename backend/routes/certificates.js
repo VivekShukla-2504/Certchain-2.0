@@ -59,7 +59,7 @@ router.post("/prepare", requireAuth, requireRole("admin", "issuer"), async (req,
   try {
     const validationError = validateCertificateInput(req.body);
     if (validationError) return res.status(400).json({ message: validationError });
-    const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Other"];
+    const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Migration", "Character", "NOC", "Provisional", "Other"];
     const documentType = typeof req.body.documentType === "string" ? req.body.documentType.trim() : "Degree";
     if (!allowedDocumentTypes.includes(documentType)) return res.status(400).json({ message: "Choose a valid document type" });
     const normalized = {
@@ -80,7 +80,8 @@ router.post("/prepare", requireAuth, requireRole("admin", "issuer"), async (req,
       certId,
       institutionId: req.institution.institutionId,
       institutionName: institution.name,
-      verifyUrl
+      verifyUrl,
+      certificateData: req.body.certificateData || {}
     });
     const preparation = signPreparedCertificate({ certId, institutionId: req.institution.institutionId, fields: normalized });
     res.json({ certId, verifyUrl, pdfBase64: pdf.toString("base64"), ...preparation });
@@ -93,11 +94,12 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
   let certificate;
   let chainConfirmed = false;
   try {
-    if (!req.file || !isPdfBuffer(req.file.buffer)) {
-      return res.status(400).json({ message: "Upload a valid PDF certificate" });
-    }
     const { candidateName, rollNumber, course, grade, issueDate, studentWallet, studentEmail, studentId, department, academicSession } = req.body;
     const institutionId = req.institution.institutionId;
+
+    if (!candidateName || !rollNumber || !course) {
+      return res.status(400).json({ message: "Candidate name, roll number, and course are required" });
+    }
 
     // Link with registered student if available
     let studentRecord = null;
@@ -113,15 +115,47 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     const resolvedStudentEmail = typeof studentEmail === "string" && studentEmail.trim()
       ? studentEmail.trim().toLowerCase()
       : studentRecord?.email || "";
-    const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Other"];
-    const documentType = typeof req.body.documentType === "string" ? req.body.documentType.trim() : "Other";
-    if (!allowedDocumentTypes.includes(documentType)) {
-      return res.status(400).json({ message: "Choose a valid document type" });
-    }
-    const validationError = validateCertificateInput(req.body);
+
+    const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Migration", "Character", "NOC", "Provisional", "Other"];
+    const documentType = typeof req.body.documentType === "string" && allowedDocumentTypes.includes(req.body.documentType.trim())
+      ? req.body.documentType.trim()
+      : "Degree";
+
+    const effectiveGrade = (grade && typeof grade === "string" && grade.trim())
+      ? grade.trim()
+      : (documentType === "Character" ? "Exemplary" : documentType === "Migration" ? "Cleared" : documentType === "NOC" ? "Approved" : "Passed");
+
+    const effectiveIssueDate = (issueDate && typeof issueDate === "string" && issueDate.trim())
+      ? issueDate.trim()
+      : new Date().toISOString().split("T")[0];
+
+    const validationPayload = {
+      candidateName: req.body.candidateName,
+      rollNumber: req.body.rollNumber,
+      course: req.body.course,
+      grade: effectiveGrade,
+      issueDate: effectiveIssueDate
+    };
+    const validationError = validateCertificateInput(validationPayload);
     if (validationError) return res.status(400).json({ message: validationError });
 
-    const normalized = { candidateName: candidateName.trim(), rollNumber: rollNumber.trim(), course: course.trim(), grade: grade.trim(), issueDate: issueDate.trim() };
+    const normalized = {
+      candidateName: candidateName.trim(),
+      rollNumber: rollNumber.trim(),
+      course: course.trim(),
+      grade: effectiveGrade,
+      issueDate: effectiveIssueDate
+    };
+
+    let certificateData = {};
+    if (req.body.certificateData) {
+      try {
+        certificateData = typeof req.body.certificateData === "string"
+          ? JSON.parse(req.body.certificateData)
+          : req.body.certificateData;
+      } catch (_) {}
+    }
+
     const preparedCertId = typeof req.body.preparedCertId === "string" ? req.body.preparedCertId : "";
     const preparedToken = typeof req.body.preparedToken === "string" ? req.body.preparedToken : "";
     const preparedExpiresAt = Number(req.body.preparedExpiresAt);
@@ -135,12 +169,43 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
       });
       if (!validPreparation) return res.status(400).json({ message: "Generated certificate preview expired or no longer matches these details" });
     }
-    const documentHash = hashFileBuffer(req.file.buffer);
+
+    const certIdToUse = preparedCertId || generateCertId();
+
+    let pdfBuffer;
+    let isAutoGenerated = false;
+    if (req.file && isPdfBuffer(req.file.buffer)) {
+      pdfBuffer = req.file.buffer;
+    } else {
+      // Auto-generate official institutional PDF
+      const frontendUrl = process.env.FRONTEND_URL || "https://certchain-2-0.vercel.app";
+      const verifyUrl = `${frontendUrl.replace(/\/$/, "")}/verify/${certIdToUse}`;
+      const institutionRecord = await Institution.findOne({ institutionId }).select("name").lean();
+
+      pdfBuffer = await generateCertificatePdf({
+        certId: certIdToUse,
+        candidateName: normalized.candidateName,
+        rollNumber: normalized.rollNumber,
+        course: normalized.course,
+        department: department || studentRecord?.department || "",
+        academicSession: academicSession || studentRecord?.academicSession || "",
+        grade: normalized.grade,
+        issueDate: normalized.issueDate,
+        documentType,
+        institutionId,
+        institutionName: institutionRecord?.name || req.institution.name,
+        verifyUrl,
+        certificateData
+      });
+      isAutoGenerated = true;
+    }
+
+    const documentHash = hashFileBuffer(pdfBuffer);
     let ipfsCid;
     let ipfsEncryption;
     if (isIPFSEnabled()) {
       try {
-        ipfsEncryption = encryptForIPFS(req.file.buffer);
+        ipfsEncryption = encryptForIPFS(pdfBuffer);
         ipfsCid = await uploadToIPFS(ipfsEncryption.encryptedBuffer);
       } catch (error) {
         console.error(`[${req.requestId || "no-request-id"}] Encrypted IPFS upload failed: ${error.message}`);
@@ -168,20 +233,19 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
       { idempotencyKey },
       {
         $setOnInsert: {
-          certId: preparedCertId || generateCertId(),
+          certId: certIdToUse,
           ...normalized,
           documentType,
           institutionId,
-          // The institution wallet is identity metadata only. The platform
-          // wallet is the actual transaction signer for staging/Sepolia.
           issuerWallet: getPlatformSignerAddress(),
           studentWallet: resolvedStudentWallet,
           studentEmail: resolvedStudentEmail,
           department: department || studentRecord?.department || "",
           academicSession: academicSession || studentRecord?.academicSession || "",
+          certificateData,
           certHash,
           documentHash,
-          generatedPdf: Boolean(preparedCertId),
+          generatedPdf: isAutoGenerated || Boolean(preparedCertId),
           idempotencyKey,
           status: "pending"
         },
@@ -203,7 +267,7 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
 
     const pdfPath = certificatePdfPath(certificate.certId);
     await fs.mkdir(path.dirname(pdfPath), { recursive: true });
-    await fs.writeFile(pdfPath, req.file.buffer);
+    await fs.writeFile(pdfPath, pdfBuffer);
 
     if (certificate.status === "confirmed") {
       return res.status(200).json(await responseForCertificate(certificate));
@@ -243,7 +307,7 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
         institutionId,
         verifyUrl,
         studentDashboardUrl,
-        pdfBuffer: req.file.buffer
+        pdfBuffer: pdfBuffer
       }).catch((emailErr) => console.error("Email dispatch error:", emailErr.message));
     }
         await recordAuditEvent({
@@ -312,7 +376,7 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
         institutionId,
         verifyUrl,
         studentDashboardUrl,
-        pdfBuffer: req.file.buffer
+        pdfBuffer: pdfBuffer
       }).catch((emailErr) => console.error("Email dispatch error:", emailErr.message));
     }
     await recordAuditEvent({

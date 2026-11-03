@@ -802,7 +802,7 @@ router.post("/", receivePdf, async (req, res) => {
       if (validationError) return res.status(400).json({ message: validationError });
       const institutionError = readString(institutionId, "Institution ID", { max: 100 });
       if (institutionError) return res.status(400).json({ message: institutionError });
-      const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Other"];
+      const allowedDocumentTypes = ["Degree", "Marksheet", "Transcript", "Diploma", "Migration", "Character", "NOC", "Provisional", "Other"];
       if (documentType && !allowedDocumentTypes.includes(documentType)) {
         return res.status(400).json({ message: "Choose a valid document type" });
       }

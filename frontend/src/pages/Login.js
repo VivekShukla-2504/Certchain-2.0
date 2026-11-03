@@ -5,7 +5,7 @@ import { Alert, Brand, Button, Field, PasswordField } from "../components/UI";
 import { authenticateStakeholderWallet, connectMetaMaskWallet } from "../utils/web3";
 
 export default function Login() {
-  const [authMethod, setAuthMethod] = useState("password"); // "password" or "wallet"
+  const [authMethod, setAuthMethod] = useState("wallet"); // "wallet" (default) or "password"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [walletAddress, setWalletAddress] = useState("");

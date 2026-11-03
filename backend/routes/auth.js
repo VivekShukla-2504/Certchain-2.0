@@ -10,16 +10,23 @@ const VerificationRequest = require("../models/VerificationRequest");
 const Employer = require("../models/Employer");
 const { readString } = require("../utils/validation");
 const { sendEmailMessage } = require("../utils/mailer");
+const { blacklistToken } = require("../middleware/auth");
 
 const router = express.Router();
+
+function escapeRegex(text) {
+  if (typeof text !== "string") return "";
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
 
 /**
  * Strict Multi-Stakeholder Role Registry Lookup
  * Determines if a given Ethereum wallet address belongs to an Institution, a Student, or an Employer.
  */
 async function getWalletStakeholderRole(cleanWallet) {
-  if (!cleanWallet) return null;
-  const regex = new RegExp("^" + cleanWallet + "$", "i");
+  if (!cleanWallet || typeof cleanWallet !== "string") return null;
+  const safeWallet = cleanWallet.trim().toLowerCase();
+  const regex = new RegExp("^" + escapeRegex(safeWallet) + "$", "i");
 
   // 1. Check if registered to an Academic Institution
   const institution = await Institution.findOne({ walletAddress: { $regex: regex } }).lean();
@@ -435,7 +442,7 @@ router.post("/wallet-verify", async (req, res) => {
   }
 });
 
-// POST /api/auth/wallet-login - Backward-compatible fallback for wallet login
+// POST /api/auth/wallet-login - Institution direct sign-in via registered wallet address
 router.post("/wallet-login", async (req, res) => {
   try {
     const { walletAddress } = req.body;
@@ -443,10 +450,13 @@ router.post("/wallet-login", async (req, res) => {
       return res.status(400).json({ message: "Wallet address is required" });
     }
     const cleanWallet = walletAddress.trim().toLowerCase();
+    if (!ethers.isAddress(cleanWallet)) {
+      return res.status(400).json({ message: "Invalid Ethereum wallet address format (must be 42 characters starting with 0x)" });
+    }
     
-    // Find institution by wallet address (case-insensitive)
+    // Find institution by wallet address (case-insensitive and safely escaped)
     let institution = await Institution.findOne({
-      walletAddress: { $regex: new RegExp("^" + cleanWallet + "$", "i") }
+      walletAddress: { $regex: new RegExp("^" + escapeRegex(cleanWallet) + "$", "i") }
     });
 
     // If matching authorized institute deployer wallet, fallback to primary institution
@@ -490,6 +500,23 @@ router.post("/wallet-login", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Wallet login failed: " + err.message });
+  }
+});
+
+// POST /api/auth/logout - Invalidate and blacklist current JWT session token
+router.post("/logout", async (req, res) => {
+  try {
+    const header = req.headers.authorization;
+    if (header && header.startsWith("Bearer ")) {
+      const token = header.split(" ")[1];
+      if (token) {
+        await blacklistToken(token);
+      }
+    }
+    return res.json({ message: "Successfully logged out and session revoked." });
+  } catch (err) {
+    console.error("[CertChain Auth] Error in logout:", err.message);
+    return res.status(500).json({ message: "Logout failed" });
   }
 });
 

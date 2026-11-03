@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Brand, Button, ThemeToggle } from "./UI";
+import api from "../api";
 import { getConnectedWallet, connectMetaMaskWallet, disconnectWallet } from "../utils/web3";
 
 const CONTRACT_ADDRESS = "0x8a16Eb15A598DA4ed2E7211FEE12b37407907d90";
@@ -45,6 +46,9 @@ export function PublicHeader() {
   const isAuthenticated = isInstituteAuth || isStudentAuth || isEmployerAuth;
 
   function handleLogout() {
+    try {
+      api.post("/auth/logout").catch(() => {});
+    } catch (_) {}
     disconnectWallet();
     localStorage.removeItem("certchain_token");
     localStorage.removeItem("certchain_role");

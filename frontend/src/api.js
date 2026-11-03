@@ -15,4 +15,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-cleanup on token revocation / 401 Unauthorized
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const currentToken = localStorage.getItem("certchain_token");
+      if (currentToken && !window.location.pathname.includes("/login")) {
+        localStorage.removeItem("certchain_token");
+        localStorage.removeItem("certchain_role");
+        localStorage.removeItem("certchain_institution");
+        localStorage.removeItem("certchain_student");
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

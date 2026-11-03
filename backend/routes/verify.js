@@ -627,7 +627,7 @@ router.get("/requests/:requestId/submitted-doc", requireAuth, async (req, res) =
 router.get("/:certId/document", async (req, res) => {
   try {
     const normalizedId = req.params.certId.trim().toUpperCase();
-    const stored = await Certificate.findOne({ certId: normalizedId });
+    const stored = await Certificate.findOne({ certId: normalizedId }).select("+pdfBase64");
     if (!stored) {
       return res.status(404).json({ message: "Certificate not found" });
     }
@@ -700,8 +700,15 @@ router.get("/:certId/document", async (req, res) => {
     try {
       pdf = await fs.readFile(certificatePdfPath(stored.certId));
     } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-      if (stored.ipfsCid && stored.ipfsIv && stored.ipfsAuthTag && stored.ipfsEncryptionVersion) {
+      if (stored.pdfBase64) {
+        try {
+          pdf = Buffer.from(stored.pdfBase64, "base64");
+          const localPath = certificatePdfPath(stored.certId);
+          await fs.mkdir(path.dirname(localPath), { recursive: true });
+          await fs.writeFile(localPath, pdf).catch(() => {});
+        } catch (dbErr) {}
+      }
+      if (!pdf && stored.ipfsCid && stored.ipfsIv && stored.ipfsAuthTag && stored.ipfsEncryptionVersion) {
         try {
           const encryptedPdf = await downloadFromIPFS(stored.ipfsCid);
           pdf = decryptFromIPFS(encryptedPdf, {
@@ -746,7 +753,7 @@ router.get("/:certId/document", async (req, res) => {
 router.get("/:certId/attestation", async (req, res) => {
   try {
     const normalizedId = req.params.certId.trim().toUpperCase();
-    const stored = await Certificate.findOne({ certId: normalizedId });
+    const stored = await Certificate.findOne({ certId: normalizedId }).select("+pdfBase64");
     if (!stored) {
       return res.status(404).json({ message: "Certificate not found" });
     }

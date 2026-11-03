@@ -950,7 +950,7 @@ export default function Dashboard() {
 
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
                 <a
-                  href={`/api/certificates/${issuedResult.certId}/download-student`}
+                  href={`${API_ORIGIN}/api/certificates/${issuedResult.certId}/download-student`}
                   target="_blank"
                   rel="noreferrer"
                   className="button button-primary"

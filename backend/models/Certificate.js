@@ -18,6 +18,7 @@ const certificateSchema = new mongoose.Schema(
     certificateData: { type: mongoose.Schema.Types.Mixed }, // Structured type-specific academic attributes
     certHash: { type: String, required: true }, // SHA-256 hex digest
     documentHash: { type: String }, // SHA-256 hash of the uploaded PDF
+    pdfBase64: { type: String, select: false }, // Persistent MongoDB PDF storage (survives Render restarts)
     generatedPdf: { type: Boolean, default: false },
     ipfsCid: { type: String },
     ipfsIv: { type: String },

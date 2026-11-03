@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import api from "../api";
+import api, { API_ORIGIN } from "../api";
 import { Alert, Button, Field } from "../components/UI";
 import { connectMetaMaskWallet } from "../utils/web3";
 
@@ -777,7 +777,7 @@ export default function Issue() {
           <div className="confirmation-actions" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1.25rem" }}>
             <a
               className="button button-primary"
-              href={`/api/certificates/${result.certificate.certId}/download-student`}
+              href={`${API_ORIGIN}/api/certificates/${result.certificate.certId}/download-student`}
               target="_blank"
               rel="noreferrer"
               style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}

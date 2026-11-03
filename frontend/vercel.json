@@ -2,6 +2,10 @@
   "framework": "create-react-app",
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "https://certchain-q0y1.onrender.com/api/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

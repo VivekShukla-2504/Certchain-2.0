@@ -533,7 +533,7 @@ export default function Dashboard() {
   });
 
   // Group certificates strictly by student for an organized, uncluttered view
-  const groupedByStudent = React.useMemo(() => {
+  const groupedByStudent = (() => {
     const groups = {};
     filteredCertificates.forEach((cert) => {
       const key = (cert.rollNumber || cert.candidateName || "UNKNOWN").trim().toUpperCase();
@@ -556,7 +556,7 @@ export default function Dashboard() {
       groups[key].certificates.push(cert);
     });
     return Object.values(groups);
-  }, [filteredCertificates]);
+  })();
 
   function getDocTypeMeta(type) {
     switch (type) {

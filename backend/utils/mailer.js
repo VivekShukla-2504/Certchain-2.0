@@ -1,3 +1,5 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 require("dotenv").config();
 const nodemailer = require("nodemailer");
 
@@ -8,7 +10,6 @@ function getMailTransport(preferredPort = 587) {
     return null;
   }
 
-  // Remove spaces from Google App Password (e.g. "vydc ubkd dmwq jgea" -> "vydcubkddmwqjgea")
   const cleanPass = rawPass.replace(/\s+/g, "");
   const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase().trim();
   const port = preferredPort || Number(process.env.SMTP_PORT || 587);
@@ -25,61 +26,103 @@ function getMailTransport(preferredPort = 587) {
     tls: {
       rejectUnauthorized: false
     },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000
   });
 }
 
 /**
- * Unified resilient email sender:
- * 1. Dispatches directly via SMTP Port 587 (Standard cloud submission port, works on Render / AWS / GCP)
- * 2. Falls back to Port 465 (SSL)
- * Completely eliminates Resend free-tier domain restrictions!
+ * Sends email via Resend HTTPS REST API (Port 443).
+ * Never blocked by cloud providers like Render Free Tier.
  */
-async function sendEmailMessage({ to, subject, text, attachments = [] }) {
-  const user = (process.env.SMTP_USER || "").trim();
-  const rawPass = (process.env.SMTP_PASS || "").trim();
+async function sendViaResend({ to, subject, text, attachments = [] }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
 
-  if (!user || !rawPass) {
-    console.warn(`[CertChain Mailer] No email credentials configured. Simulated email to: ${to}`);
-    return null;
+  let fromEmail = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const configuredFrom = (process.env.MAIL_FROM || "").trim();
+  if (configuredFrom && !configuredFrom.includes("@gmail.com") && !configuredFrom.includes("@yahoo.com") && !configuredFrom.includes("@outlook.com")) {
+    fromEmail = configuredFrom;
   }
+  const formattedFrom = fromEmail.includes("<") ? fromEmail : `CertChain <${fromEmail}>`;
 
-  const mailOptions = {
-    from: process.env.MAIL_FROM || user,
-    to,
+  const payload = {
+    from: formattedFrom,
+    to: Array.isArray(to) ? to : [to],
     subject,
-    text,
-    attachments: attachments ? attachments.map((att) => ({
-      filename: att.filename,
-      content: att.content,
-      contentType: att.contentType || "application/octet-stream"
-    })) : []
+    text
   };
 
-  // 1. Try Port 587 first (Standard cloud submission port with STARTTLS)
-  try {
-    console.log(`[CertChain Mailer] Dispatching email to ${to} via SMTP (Port 587)...`);
-    const transport587 = getMailTransport(587);
-    const info = await transport587.sendMail(mailOptions);
-    console.log(`[CertChain Mailer] Delivered via SMTP Port 587 to ${to} (MessageId: ${info.messageId})`);
-    return info;
-  } catch (err587) {
-    console.warn(`[CertChain Mailer] Port 587 attempt failed (${err587.message}), trying Port 465...`);
+  if (attachments && attachments.length > 0) {
+    payload.attachments = attachments.map((att) => ({
+      filename: att.filename,
+      content: Buffer.isBuffer(att.content) ? att.content.toString("base64") : Buffer.from(att.content).toString("base64")
+    }));
   }
 
-  // 2. Fallback to Port 465 (Direct SSL)
-  try {
-    console.log(`[CertChain Mailer] Dispatching email to ${to} via SMTP (Port 465)...`);
-    const transport465 = getMailTransport(465);
-    const info = await transport465.sendMail(mailOptions);
-    console.log(`[CertChain Mailer] Delivered via SMTP Port 465 to ${to} (MessageId: ${info.messageId})`);
-    return info;
-  } catch (err465) {
-    console.error(`[CertChain Mailer] All SMTP delivery attempts failed to ${to}: ${err465.message}`);
-    throw err465;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || `Resend error: ${res.status}`);
   }
+  return { messageId: data.id, provider: "resend" };
+}
+
+/**
+ * Unified resilient email sender:
+ * 1. Attempts Resend HTTPS API (Port 443) on cloud environments (like Render Free Tier where raw SMTP ports are blocked)
+ * 2. Falls back to Nodemailer SMTP (Port 587 / 465) on Localhost / Unrestricted networks
+ */
+async function sendEmailMessage({ to, subject, text, attachments = [] }) {
+  // 1. Resend HTTPS API (Port 443) - Essential for Render Free Tier
+  if (process.env.RESEND_API_KEY) {
+    try {
+      console.log(`[CertChain Mailer] Dispatching via Resend HTTPS (Port 443) to ${to}...`);
+      const result = await sendViaResend({ to, subject, text, attachments });
+      console.log(`[CertChain Mailer] Delivered via Resend to ${to} (ID: ${result.messageId})`);
+      return result;
+    } catch (resendErr) {
+      console.warn(`[CertChain Mailer] Resend HTTPS failed (${resendErr.message}), trying SMTP...`);
+      if (resendErr.message && (resendErr.message.includes("You can only send testing emails") || resendErr.message.includes("resend.com/domains"))) {
+        throw resendErr;
+      }
+    }
+  }
+
+  // 2. SMTP Transport (Works on Localhost / Local dev)
+  const transport = getMailTransport(587);
+  if (transport) {
+    try {
+      console.log(`[CertChain Mailer] Dispatching via SMTP (Port 587) to ${to}...`);
+      const info = await transport.sendMail({
+        from: process.env.MAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject,
+        text,
+        attachments: attachments ? attachments.map((att) => ({
+          filename: att.filename,
+          content: att.content,
+          contentType: att.contentType || "application/octet-stream"
+        })) : []
+      });
+      console.log(`[CertChain Mailer] Delivered via SMTP to ${to} (MessageId: ${info.messageId})`);
+      return info;
+    } catch (smtpErr) {
+      console.error(`[CertChain Mailer] SMTP delivery failed to ${to}: ${smtpErr.message}`);
+      throw smtpErr;
+    }
+  }
+
+  throw new Error("No working email service configured");
 }
 
 /**
